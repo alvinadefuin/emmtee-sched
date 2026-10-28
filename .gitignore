@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# local-only data (real roster, seed data, notes about real people)
+local/
+
+# vercel
+.vercel/
+
+# misc
+.DS_Store
+*.log
+coverage/
