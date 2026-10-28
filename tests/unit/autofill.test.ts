@@ -109,6 +109,21 @@ describe("autofill", () => {
     expect(a).toEqual(b);
   });
 
+  it("does not depend on the order volunteers are passed in", () => {
+    const vols: AutofillVolunteer[] = [
+      { id: 1, roles: ["laptop"] },
+      { id: 2, roles: ["laptop", "photog"] },
+      { id: 3, roles: ["photog"] },
+      { id: 4, roles: ["laptop", "assist"] },
+      { id: 5, roles: ["assist", "photog"] },
+    ];
+    for (const seed of [1, 2, 3, 42]) {
+      const a = autofill(makeSlots(NOV, ["laptop", "assist", "photog"]), vols, seed);
+      const b = autofill(makeSlots(NOV, ["laptop", "assist", "photog"]).reverse(), [...vols].reverse(), seed);
+      expect(b).toEqual(a);
+    }
+  });
+
   describe("fills every slot when a complete fill exists", () => {
     it("a: a two-role volunteer is not stuck on the role someone else could cover", () => {
       const vols: AutofillVolunteer[] = [{ id: 1, roles: ["photog"] }, { id: 2, roles: ["laptop", "photog"] }];

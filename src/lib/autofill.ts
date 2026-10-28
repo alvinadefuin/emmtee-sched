@@ -29,9 +29,11 @@ function mulberry32(seed: number): () => number {
  * Previous `auto` picks are discarded; `claimed` and `manual` slots are kept.
  */
 export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[], seed: number): AutofillResult {
+  // Sort before drawing so the same seed gives the same draft whatever the row order.
+  const pool = [...volunteers].sort((a, b) => a.id - b.id);
   const rand = mulberry32(seed);
   const tieRank = new Map(
-    volunteers
+    pool
       .map((v) => ({ id: v.id, r: rand() }))
       .sort((a, b) => a.r - b.r)
       .map((x, i) => [x.id, i] as const),
@@ -60,7 +62,7 @@ export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[],
 
   // 1. Everyone once: each eligible volunteer with no date in a role gets one.
   for (const role of SLOT_ROLES) {
-    const zeros = volunteers
+    const zeros = pool
       .filter((v) => v.roles.includes(role) && roleCount(v.id, role) === 0)
       .sort(byLoad(role));
     for (const v of zeros) {
@@ -74,7 +76,7 @@ export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[],
   for (const slot of slots) {
     if (slot.volunteerId !== null || slot.role === "assist") continue;
     for (const minGap of [14, 7]) {
-      const pick = volunteers.filter((v) => canPlace(v, slot, minGap)).sort(byLoad(slot.role))[0];
+      const pick = pool.filter((v) => canPlace(v, slot, minGap)).sort(byLoad(slot.role))[0];
       if (pick) {
         place(slot, pick);
         break;
@@ -88,7 +90,7 @@ export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[],
   //    also leave an assist slot empty, since assist is never required.
   const fixed = (s: AutofillSlot) => s.source === "claimed" || s.source === "manual";
   const augment = (slot: AutofillSlot, seen: Set<number>, dropAssist: boolean): boolean => {
-    const candidates = volunteers.filter((v) => v.roles.includes(slot.role) && !seen.has(v.id)).sort(byLoad(slot.role));
+    const candidates = pool.filter((v) => v.roles.includes(slot.role) && !seen.has(v.id)).sort(byLoad(slot.role));
     for (const v of candidates) {
       seen.add(v.id);
       const current = slots.find((s) => s !== slot && s.date === slot.date && s.volunteerId === v.id);
