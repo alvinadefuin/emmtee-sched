@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { serviceDates, slots, swapRequests, volunteers } from "@/db/schema";
+import { isUuid } from "@/lib/ids";
 import { effectiveStatus } from "@/lib/month-status";
 import { fail, notNull, type Result } from "@/lib/result";
 import type { SlotRole, SwapKind, SwapStatus } from "@/lib/roles";
@@ -57,6 +58,7 @@ export async function createSwap(input: CreateSwapInput, now = new Date()): Prom
 }
 
 export async function acceptSwap(id: string, actorId: number, now = new Date()): Promise<Result> {
+  if (!isUuid(id)) return fail("Swap request not found.");
   try {
     return await acceptInTransaction(id, actorId, now);
   } catch (e) {
@@ -153,15 +155,19 @@ function acceptInTransaction(id: string, actorId: number, now: Date): Promise<Re
 }
 
 async function close(id: string, actorId: number, who: "target" | "requester", status: SwapStatus, now: Date) {
+  if (!isUuid(id)) return fail("Swap request not found.");
   const [req] = await db.select().from(swapRequests).where(eq(swapRequests.id, id));
   if (!req) return fail("Swap request not found.");
   if (req.status !== "pending") return fail(`This request is already ${req.status}.`);
   const allowed = who === "target" ? req.targetId : req.requesterId;
   if (allowed !== actorId) return fail(who === "target" ? "Only the person being asked can decline." : "Only the requester can cancel.");
-  await db
+  const updated = await db
     .update(swapRequests)
     .set({ status, resolvedAt: now })
-    .where(and(eq(swapRequests.id, id), eq(swapRequests.status, "pending")));
+    .where(and(eq(swapRequests.id, id), eq(swapRequests.status, "pending")))
+    .returning({ id: swapRequests.id });
+  // It was accepted, declined or cancelled between the read and the update.
+  if (!updated.length) return fail("This request is no longer pending.");
   return { ok: true } as const;
 }
 
@@ -183,6 +189,8 @@ export type SwapDetail = {
 };
 
 export async function getSwapDetail(id: string): Promise<SwapDetail | null> {
+  // Postgres rejects a malformed uuid with an error (22P02); treat it as not found.
+  if (!isUuid(id)) return null;
   const [req] = await db.select().from(swapRequests).where(eq(swapRequests.id, id));
   if (!req) return null;
   const slotRows = await db
