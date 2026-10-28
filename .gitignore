@@ -20,3 +20,7 @@ local/
 .DS_Store
 *.log
 coverage/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
