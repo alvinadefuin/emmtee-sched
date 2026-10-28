@@ -1,13 +1,14 @@
-import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { months, serviceDates, slots } from "@/db/schema";
-import { autofill } from "@/lib/autofill";
+import { autofill, changedSlotIds } from "@/lib/autofill";
 import { defaultDeadline, sundaysInMonth } from "@/lib/dates";
 import { effectiveStatus, nextStatus, type MonthOp } from "@/lib/month-status";
 import { nextPoster } from "@/lib/poster-rotation";
 import { fail, type Result } from "@/lib/result";
 import { isSlotRole, SLOT_ROLES, type Theme } from "@/lib/roles";
 import { isUniqueViolation } from "./errors";
+import { cancelPendingSwaps } from "./queries";
 import { listVolunteers } from "./roster";
 
 async function insertDate(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], monthId: number, date: string) {
@@ -73,13 +74,24 @@ export async function removeServiceDate(dateId: number): Promise<Result> {
   return { ok: true };
 }
 
-export async function setSlotManually(slotId: number, volunteerId: number | null): Promise<Result> {
+export async function setSlotManually(slotId: number, volunteerId: number | null, now = new Date()): Promise<Result> {
   try {
-    await db
-      .update(slots)
-      .set({ volunteerId, source: volunteerId === null ? null : "manual", updatedAt: new Date() })
-      .where(eq(slots.id, slotId));
-    return { ok: true };
+    return await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ volunteerId: slots.volunteerId })
+        .from(slots)
+        .where(eq(slots.id, slotId))
+        .for("update");
+      if (!current) return fail("Slot not found.");
+      await tx
+        .update(slots)
+        .set({ volunteerId, source: volunteerId === null ? null : "manual", updatedAt: now })
+        .where(eq(slots.id, slotId));
+      if (current.volunteerId !== volunteerId) {
+        await cancelPendingSwaps(tx, [slotId], "The organiser changed this slot.", now);
+      }
+      return { ok: true };
+    });
   } catch (e) {
     if (isUniqueViolation(e)) return fail("That person already has a role on that Sunday.");
     throw e;
@@ -104,28 +116,43 @@ export async function runAutofill(monthId: number, seed: number, now = new Date(
   const status = effectiveStatus(m.status, m.deadline, now);
   if (status !== "locked" && status !== "draft") return fail("Lock the poll before running auto-fill.");
 
-  const rows = await db
-    .select({ id: slots.id, date: serviceDates.date, role: slots.role, volunteerId: slots.volunteerId, source: slots.source })
-    .from(slots)
-    .innerJoin(serviceDates, eq(slots.serviceDateId, serviceDates.id))
-    .where(eq(serviceDates.monthId, monthId));
   const vols = (await listVolunteers())
     .filter((v) => v.active)
     .map((v) => ({ id: v.id, roles: v.roles.filter(isSlotRole) }));
-  const result = autofill(rows, vols, seed);
 
-  await db.transaction(async (tx) => {
-    // Clear old auto picks before writing new ones so the one-role-per-day index
-    // never sees a transient duplicate.
-    await tx
-      .update(slots)
-      .set({ volunteerId: null, source: null })
-      .where(and(inArray(slots.id, rows.map((r) => r.id)), eq(slots.source, "auto")));
-    for (const s of result.slots) {
-      if (s.source !== "auto") continue;
-      await tx.update(slots).set({ volunteerId: s.volunteerId, source: "auto", updatedAt: now }).where(eq(slots.id, s.id));
-    }
-    await tx.update(months).set({ status: "draft", autofillSeed: seed }).where(eq(months.id, monthId));
-  });
-  return { ok: true, unfilled: result.unfilled.length };
+  try {
+    const unfilled = await db.transaction(async (tx) => {
+      // Read and lock the month's slots inside the transaction, so a claim or manual
+      // edit cannot land between computing the draft and writing it.
+      const rows = await tx
+        .select({ id: slots.id, date: serviceDates.date, role: slots.role, volunteerId: slots.volunteerId, source: slots.source })
+        .from(slots)
+        .innerJoin(serviceDates, eq(slots.serviceDateId, serviceDates.id))
+        .where(eq(serviceDates.monthId, monthId))
+        .for("update", { of: slots });
+      const result = autofill(rows, vols, seed);
+
+      // Clear old auto picks before writing new ones so the one-role-per-day index
+      // never sees a transient duplicate. Both writes are guarded so they only touch
+      // auto or empty slots, never a claimed or manual one.
+      await tx
+        .update(slots)
+        .set({ volunteerId: null, source: null })
+        .where(and(inArray(slots.id, rows.map((r) => r.id)), eq(slots.source, "auto")));
+      for (const s of result.slots) {
+        if (s.source !== "auto") continue;
+        await tx
+          .update(slots)
+          .set({ volunteerId: s.volunteerId, source: "auto", updatedAt: now })
+          .where(and(eq(slots.id, s.id), isNull(slots.volunteerId)));
+      }
+      await cancelPendingSwaps(tx, changedSlotIds(rows, result.slots), "Auto-fill changed this slot.", now);
+      await tx.update(months).set({ status: "draft", autofillSeed: seed }).where(eq(months.id, monthId));
+      return result.unfilled.length;
+    });
+    return { ok: true, unfilled };
+  } catch (e) {
+    if (isUniqueViolation(e)) return fail("The schedule changed during auto-fill. Please try again.");
+    throw e;
+  }
 }

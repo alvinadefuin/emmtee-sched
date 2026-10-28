@@ -114,3 +114,9 @@ export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[],
   const unfilled = slots.filter((s) => s.volunteerId === null && s.role !== "assist");
   return { slots, unfilled };
 }
+
+/** Ids of slots whose holder differs between `before` and `after` (matched by id), in `before` order. */
+export function changedSlotIds(before: AutofillSlot[], after: AutofillSlot[]): number[] {
+  const next = new Map(after.map((s) => [s.id, s.volunteerId]));
+  return before.filter((s) => (next.get(s.id) ?? null) !== s.volunteerId).map((s) => s.id);
+}

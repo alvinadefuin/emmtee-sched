@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { months, serviceDates, slots, volunteerRoles } from "@/db/schema";
+import { months, serviceDates, slots, swapRequests, volunteerRoles } from "@/db/schema";
 import type { Role } from "@/lib/roles";
 import type { SwapSlot } from "@/lib/swap-rules";
 
@@ -36,4 +36,18 @@ export async function eligibilityMap(ex: Executor): Promise<Map<number, Role[]>>
   const map = new Map<number, Role[]>();
   for (const r of rows) map.set(r.volunteerId, [...(map.get(r.volunteerId) ?? []), r.role]);
   return map;
+}
+
+/** Cancels pending swap requests that involve any of these slots, e.g. after their holder changed. */
+export async function cancelPendingSwaps(ex: Executor, slotIds: number[], reason: string, now: Date): Promise<void> {
+  if (!slotIds.length) return;
+  await ex
+    .update(swapRequests)
+    .set({ status: "cancelled", reason, resolvedAt: now })
+    .where(
+      and(
+        eq(swapRequests.status, "pending"),
+        or(inArray(swapRequests.requesterSlotId, slotIds), inArray(swapRequests.targetSlotId, slotIds)),
+      ),
+    );
 }

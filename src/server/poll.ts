@@ -1,10 +1,10 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { slots, swapRequests, volunteerRoles } from "@/db/schema";
+import { slots, volunteerRoles } from "@/db/schema";
 import { canClaim, effectiveStatus } from "@/lib/month-status";
 import { fail, type Result } from "@/lib/result";
 import { isUniqueViolation } from "./errors";
-import { slotContext } from "./queries";
+import { cancelPendingSwaps, slotContext } from "./queries";
 
 export async function claimSlot(slotId: number, volunteerId: number, now = new Date()): Promise<Result> {
   const ctx = await slotContext(db, slotId);
@@ -40,14 +40,6 @@ export async function releaseSlot(slotId: number, volunteerId: number, now = new
     .returning({ id: slots.id });
   if (!updated.length) return fail("This slot is not yours.");
 
-  await db
-    .update(swapRequests)
-    .set({ status: "cancelled", reason: "The slot was released.", resolvedAt: now })
-    .where(
-      and(
-        eq(swapRequests.status, "pending"),
-        or(eq(swapRequests.requesterSlotId, slotId), eq(swapRequests.targetSlotId, slotId)),
-      ),
-    );
+  await cancelPendingSwaps(db, [slotId], "The slot was released.", now);
   return { ok: true };
 }

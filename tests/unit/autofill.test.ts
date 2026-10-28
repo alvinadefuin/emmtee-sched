@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autofill, type AutofillSlot, type AutofillVolunteer } from "@/lib/autofill";
+import { autofill, changedSlotIds, type AutofillSlot, type AutofillVolunteer } from "@/lib/autofill";
 import type { SlotRole } from "@/lib/roles";
 
 const NOV = ["2026-11-01", "2026-11-08", "2026-11-15", "2026-11-22", "2026-11-29"];
@@ -184,5 +184,29 @@ describe("autofill", () => {
       }
       expect(checked).toBeGreaterThan(50);
     });
+  });
+});
+
+describe("changedSlotIds", () => {
+  const before: AutofillSlot[] = [
+    { id: 1, date: NOV[0], role: "laptop", volunteerId: 10, source: "auto" },
+    { id: 2, date: NOV[0], role: "photog", volunteerId: 11, source: "auto" },
+    { id: 3, date: NOV[0], role: "assist", volunteerId: null, source: null },
+    { id: 4, date: NOV[1], role: "laptop", volunteerId: 12, source: "claimed" },
+  ];
+
+  it("lists only slots whose holder differs", () => {
+    const after: AutofillSlot[] = [
+      { ...before[0] }, // same auto pick kept
+      { ...before[1], volunteerId: 13 }, // re-drawn
+      { ...before[2], volunteerId: 14, source: "auto" }, // newly filled
+      { ...before[3] },
+    ];
+    expect(changedSlotIds(before, after)).toEqual([2, 3]);
+  });
+
+  it("counts an auto pick that is dropped", () => {
+    const after: AutofillSlot[] = before.map((s) => (s.id === 1 ? { ...s, volunteerId: null, source: null } : { ...s }));
+    expect(changedSlotIds(before, after)).toEqual([1]);
   });
 });
