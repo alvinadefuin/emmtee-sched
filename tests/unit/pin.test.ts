@@ -21,6 +21,16 @@ describe("session tokens", () => {
     expect(verifySession(signSession(now + 1000, `${SECRET}x`), SECRET, now)).toBe(false);
   });
   it("rejects garbage", () => expect(verifySession("nonsense", SECRET, now)).toBe(false));
+  it("rejects a token with extra dot-separated parts", () => {
+    expect(verifySession(`${signSession(now + 1000, SECRET)}.extra`, SECRET, now)).toBe(false);
+  });
+  it("refuses to sign or verify with a missing or short secret", () => {
+    const token = signSession(now + 1000, SECRET);
+    for (const weak of ["", "x".repeat(31)]) {
+      expect(() => signSession(now + 1000, weak)).toThrow();
+      expect(() => verifySession(token, weak, now)).toThrow();
+    }
+  });
 });
 
 describe("hashIp", () => {
