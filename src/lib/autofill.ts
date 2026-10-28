@@ -82,6 +82,33 @@ export function autofill(input: AutofillSlot[], volunteers: AutofillVolunteer[],
     }
   }
 
+  // 3. Repair: the greedy steps can strand a slot whose only candidates are busy in
+  //    another auto slot that day. Search for a chain of same-day moves that frees
+  //    one (augmenting path); spacing is soft and is ignored here. A second pass may
+  //    also leave an assist slot empty, since assist is never required.
+  const fixed = (s: AutofillSlot) => s.source === "claimed" || s.source === "manual";
+  const augment = (slot: AutofillSlot, seen: Set<number>, dropAssist: boolean): boolean => {
+    const candidates = volunteers.filter((v) => v.roles.includes(slot.role) && !seen.has(v.id)).sort(byLoad(slot.role));
+    for (const v of candidates) {
+      seen.add(v.id);
+      const current = slots.find((s) => s !== slot && s.date === slot.date && s.volunteerId === v.id);
+      if (current && fixed(current)) continue;
+      if (current && !augment(current, seen, dropAssist)) {
+        if (!(dropAssist && current.role === "assist")) continue;
+        current.volunteerId = null;
+        current.source = null;
+      }
+      place(slot, v);
+      return true;
+    }
+    return false;
+  };
+  for (const dropAssist of [false, true]) {
+    for (const slot of slots) {
+      if (slot.volunteerId === null && slot.role !== "assist") augment(slot, new Set(), dropAssist);
+    }
+  }
+
   const unfilled = slots.filter((s) => s.volunteerId === null && s.role !== "assist");
   return { slots, unfilled };
 }
