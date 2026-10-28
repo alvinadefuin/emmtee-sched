@@ -79,3 +79,11 @@ export function parseYm(value: string): { year: number; month: number } | null {
   const month = Number(m[2]);
   return month >= 1 && month <= 12 ? { year: Number(m[1]), month } : null;
 }
+
+/** True if `value` is a real YYYY-MM-DD calendar date inside the given month. */
+export function isDateInMonth(value: string, year: number, month: number): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m || Number(m[1]) !== year || Number(m[2]) !== month) return false;
+  const day = Number(m[3]);
+  return day >= 1 && day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}

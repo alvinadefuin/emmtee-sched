@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultDeadline,
   formatCountdown,
+  isDateInMonth,
   manilaInputValue,
   monthLabel,
   parseManilaInput,
@@ -93,5 +94,19 @@ describe("labels", () => {
     expect(ym(2026, 3)).toBe("2026-03");
     expect(parseYm("2026-03")).toEqual({ year: 2026, month: 3 });
     expect(parseYm("2026-13")).toBeNull();
+  });
+});
+
+describe("isDateInMonth", () => {
+  it("accepts a real date inside the month", () => expect(isDateInMonth("2026-11-08", 2026, 11)).toBe(true));
+  it("accepts the last day of the month", () => expect(isDateInMonth("2028-02-29", 2028, 2)).toBe(true));
+  it("rejects a date in another month", () => expect(isDateInMonth("2026-12-06", 2026, 11)).toBe(false));
+  it("rejects a date that does not exist", () => {
+    expect(isDateInMonth("2026-02-30", 2026, 2)).toBe(false);
+    expect(isDateInMonth("2026-11-00", 2026, 11)).toBe(false);
+  });
+  it("rejects malformed input", () => {
+    expect(isDateInMonth("", 2026, 11)).toBe(false);
+    expect(isDateInMonth("2026-11-8", 2026, 11)).toBe(false);
   });
 });

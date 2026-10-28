@@ -2,8 +2,8 @@ import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { months, serviceDates, slots } from "@/db/schema";
 import { autofill, changedSlotIds } from "@/lib/autofill";
-import { defaultDeadline, sundaysInMonth } from "@/lib/dates";
-import { effectiveStatus, nextStatus, type MonthOp } from "@/lib/month-status";
+import { defaultDeadline, isDateInMonth, sundaysInMonth } from "@/lib/dates";
+import { effectiveStatus, planTransition, type MonthOp } from "@/lib/month-status";
 import { nextPoster } from "@/lib/poster-rotation";
 import { fail, type Result } from "@/lib/result";
 import { isSlotRole, SLOT_ROLES, type Theme } from "@/lib/roles";
@@ -60,6 +60,9 @@ export async function updateMonthSettings(
 
 export async function addServiceDate(monthId: number, date: string): Promise<Result> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return fail("Pick a date.");
+  const [m] = await db.select({ year: months.year, month: months.month }).from(months).where(eq(months.id, monthId));
+  if (!m) return fail("Month not found.");
+  if (!isDateInMonth(date, m.year, m.month)) return fail("Pick a real date in this month.");
   try {
     await db.transaction((tx) => insertDate(tx, monthId, date));
     return { ok: true };
@@ -101,12 +104,9 @@ export async function setSlotManually(slotId: number, volunteerId: number | null
 export async function transitionMonth(monthId: number, op: MonthOp, now = new Date()): Promise<Result> {
   const [m] = await db.select().from(months).where(eq(months.id, monthId));
   if (!m) return fail("Month not found.");
-  const to = nextStatus(effectiveStatus(m.status, m.deadline, now), op);
-  if (!to) return fail(`Can't ${op} from the current status.`);
-  if (op === "reopen" && m.deadline.getTime() <= now.getTime()) {
-    return fail("Move the deadline later before reopening the poll.");
-  }
-  await db.update(months).set({ status: to }).where(eq(months.id, monthId));
+  const plan = planTransition(m.status, m.deadline, now, op);
+  if (!plan.ok) return plan;
+  await db.update(months).set({ status: plan.to }).where(eq(months.id, monthId));
   return { ok: true };
 }
 

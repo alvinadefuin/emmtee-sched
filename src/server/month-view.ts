@@ -38,11 +38,13 @@ export type MonthView = {
   pendingSwaps: SwapView[];
 };
 
-export async function listMonths() {
-  return db
-    .select({ id: months.id, year: months.year, month: months.month, status: months.status })
+/** Every month, newest first, with its effective status (an open poll past its deadline reads as "locked"). */
+export async function listMonths(now = new Date()) {
+  const rows = await db
+    .select({ id: months.id, year: months.year, month: months.month, status: months.status, deadline: months.deadline })
     .from(months)
     .orderBy(desc(months.year), desc(months.month));
+  return rows.map(({ deadline, ...m }) => ({ ...m, status: effectiveStatus(m.status, deadline, now) }));
 }
 
 export async function getLatestMonthId(): Promise<number | null> {
