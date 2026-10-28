@@ -12,7 +12,7 @@ const baseSlots: SwapSlot[] = [
 const eligibility = (extra: Record<number, Role[]> = {}) =>
   new Map<number, Role[]>(
     Object.entries({ 1: ["laptop"], 2: ["laptop"], 3: ["laptop", "photog"], 4: ["photog"], ...extra }).map(
-      ([k, v]) => [Number(k), v],
+      ([k, v]): [number, Role[]] => [Number(k), v as Role[]],
     ),
   );
 
