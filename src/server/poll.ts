@@ -4,12 +4,14 @@ import { slots, volunteerRoles } from "@/db/schema";
 import { canClaim, effectiveStatus } from "@/lib/month-status";
 import { fail, type Result } from "@/lib/result";
 import { isUniqueViolation } from "./errors";
-import { cancelPendingSwaps, slotContext } from "./queries";
+import { cancelPendingSwaps, slotContext, volunteerProblem } from "./queries";
 
 export async function claimSlot(slotId: number, volunteerId: number, now = new Date()): Promise<Result> {
   const ctx = await slotContext(db, slotId);
   if (!ctx) return fail("Slot not found.");
   if (!canClaim(effectiveStatus(ctx.status, ctx.deadline, now))) return fail("The poll is closed.");
+  const problem = await volunteerProblem(db, volunteerId, "you");
+  if (problem) return fail(problem);
 
   const roles = await db.select().from(volunteerRoles).where(eq(volunteerRoles.volunteerId, volunteerId));
   if (!roles.some((r) => r.role === ctx.role)) return fail("You are not on the roster for this role.");

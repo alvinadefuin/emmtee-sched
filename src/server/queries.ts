@@ -1,8 +1,9 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import type { Executor } from "@/db";
-import { months, serviceDates, slots, swapRequests, volunteerRoles } from "@/db/schema";
+import { months, serviceDates, slots, swapRequests, volunteerRoles, volunteers } from "@/db/schema";
 import type { Role } from "@/lib/roles";
 import type { SwapSlot } from "@/lib/swap-rules";
+import { volunteerError } from "@/lib/volunteer-check";
 
 export async function slotContext(ex: Executor, slotId: number) {
   const [row] = await ex
@@ -50,4 +51,10 @@ export async function cancelPendingSwaps(ex: Executor, slotIds: number[], reason
         or(inArray(swapRequests.requesterSlotId, slotIds), inArray(swapRequests.targetSlotId, slotIds)),
       ),
     );
+}
+
+/** Why this volunteer cannot claim or swap (missing or inactive), or null if they can. */
+export async function volunteerProblem(ex: Executor, volunteerId: number, who: "you" | "them"): Promise<string | null> {
+  const [v] = await ex.select({ active: volunteers.active }).from(volunteers).where(eq(volunteers.id, volunteerId));
+  return volunteerError(v, who);
 }

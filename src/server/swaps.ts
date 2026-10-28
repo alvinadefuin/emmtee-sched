@@ -7,7 +7,7 @@ import { fail, notNull, type Result } from "@/lib/result";
 import type { SlotRole, SwapKind, SwapStatus } from "@/lib/roles";
 import { swapStatusError, validateSwap } from "@/lib/swap-rules";
 import { isUniqueViolation } from "./errors";
-import { eligibilityMap, monthSlots, slotContext } from "./queries";
+import { eligibilityMap, monthSlots, slotContext, volunteerProblem } from "./queries";
 
 const PENDING_CLASH = "There is already a pending swap for one of these slots.";
 
@@ -26,6 +26,9 @@ export async function createSwap(input: CreateSwapInput, now = new Date()): Prom
     const target = await slotContext(db, input.targetSlotId);
     if (!target || target.monthId !== ctx.monthId) return fail("Both slots must be in the same month.");
   }
+  const problem =
+    (await volunteerProblem(db, input.requesterId, "you")) ?? (await volunteerProblem(db, input.targetId, "them"));
+  if (problem) return fail(problem);
 
   const verdict = validateSwap({
     ...input,
@@ -102,6 +105,9 @@ function acceptInTransaction(id: string, actorId: number, now: Date): Promise<Re
     const status = effectiveStatus(ctx.status, ctx.deadline, now);
     const paused = swapStatusError(status);
     if (paused) return fail(paused);
+    const problem =
+      (await volunteerProblem(tx, req.targetId, "you")) ?? (await volunteerProblem(tx, req.requesterId, "them"));
+    if (problem) return fail(problem);
     const verdict = validateSwap({
       kind: req.kind,
       requesterId: req.requesterId,
