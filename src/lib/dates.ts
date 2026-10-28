@@ -34,7 +34,8 @@ export function manilaInputValue(instant: Date): string {
 export function parseManilaInput(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
   const d = new Date(`${value}:00+08:00`);
-  return Number.isNaN(d.getTime()) ? null : d;
+  // Reject values like Feb 30 or 24:00 that Date would silently roll over.
+  return Number.isNaN(d.getTime()) || manilaInputValue(d) !== value ? null : d;
 }
 
 export function formatManila(instant: Date): string {
@@ -49,7 +50,7 @@ export function formatManila(instant: Date): string {
 }
 
 export function formatCountdown(ms: number): string {
-  if (ms <= 0) return "Closed";
+  if (!Number.isFinite(ms) || ms <= 0) return "Closed";
   const totalMins = Math.floor(ms / 60_000);
   if (totalMins === 0) return "under 1 min";
   const days = Math.floor(totalMins / 1440);

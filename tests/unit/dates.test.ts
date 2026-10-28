@@ -59,6 +59,17 @@ describe("Manila input conversion", () => {
   it("rejects malformed input", () => {
     expect(parseManilaInput("27/11/2026")).toBeNull();
   });
+
+  it("rejects out-of-range values instead of rolling them over", () => {
+    for (const bad of ["2026-02-30T10:00", "2026-13-01T10:00", "2026-11-27T24:00", "2026-11-27T23:60"]) {
+      expect(parseManilaInput(bad), bad).toBeNull();
+    }
+  });
+
+  it("accepts the edges of the valid range", () => {
+    expect(parseManilaInput("2028-02-29T00:00")?.toISOString()).toBe("2028-02-28T16:00:00.000Z");
+    expect(parseManilaInput("2026-12-31T23:59")?.toISOString()).toBe("2026-12-31T15:59:00.000Z");
+  });
 });
 
 describe("formatCountdown", () => {
@@ -69,6 +80,10 @@ describe("formatCountdown", () => {
   it("minutes only", () => expect(formatCountdown(12 * MIN + 30_000)).toBe("12 mins"));
   it("under a minute", () => expect(formatCountdown(30_000)).toBe("under 1 min"));
   it("closed", () => expect(formatCountdown(0)).toBe("Closed"));
+  it("treats a non-finite duration as closed", () => {
+    expect(formatCountdown(NaN)).toBe("Closed");
+    expect(formatCountdown(Infinity)).toBe("Closed");
+  });
 });
 
 describe("labels", () => {
