@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { randomSeed } from "@/lib/autofill";
 import { parseManilaInput } from "@/lib/dates";
 import { pinMatches } from "@/lib/pin";
 import { ROLES, THEMES, type Role, type Theme } from "@/lib/roles";
@@ -93,7 +94,7 @@ export async function autofillAction(fd: FormData): Promise<void> {
   await guard();
   const monthId = int(fd, "monthId");
   if (monthId === null) back(fd, "Invalid request.");
-  const r = await runAutofill(monthId, Math.floor(Math.random() * 2 ** 31));
+  const r = await runAutofill(monthId, randomSeed());
   back(fd, r.ok ? `Draft ready. ${r.unfilled} slot(s) still empty.` : r.error);
 }
 

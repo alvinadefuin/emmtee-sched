@@ -120,3 +120,9 @@ export function changedSlotIds(before: AutofillSlot[], after: AutofillSlot[]): n
   const next = new Map(after.map((s) => [s.id, s.volunteerId]));
   return before.filter((s) => (next.get(s.id) ?? null) !== s.volunteerId).map((s) => s.id);
 }
+
+/** Largest value of a Postgres `integer`, the type of `months.autofill_seed`. */
+const PG_INT_MAX = 2_147_483_647;
+
+/** A fresh auto-fill seed in [0, PG_INT_MAX], so it can be stored as-is. */
+export const randomSeed = (random: () => number = Math.random): number => Math.floor(random() * (PG_INT_MAX + 1));

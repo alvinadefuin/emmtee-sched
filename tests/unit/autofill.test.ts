@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autofill, changedSlotIds, type AutofillSlot, type AutofillVolunteer } from "@/lib/autofill";
+import { autofill, changedSlotIds, randomSeed, type AutofillSlot, type AutofillVolunteer } from "@/lib/autofill";
 import type { SlotRole } from "@/lib/roles";
 
 const NOV = ["2026-11-01", "2026-11-08", "2026-11-15", "2026-11-22", "2026-11-29"];
@@ -208,5 +208,16 @@ describe("changedSlotIds", () => {
   it("counts an auto pick that is dropped", () => {
     const after: AutofillSlot[] = before.map((s) => (s.id === 1 ? { ...s, volunteerId: null, source: null } : { ...s }));
     expect(changedSlotIds(before, after)).toEqual([1]);
+  });
+});
+
+describe("randomSeed", () => {
+  it("always fits a Postgres integer column", () => {
+    for (const r of [0, 0.5, 1 - Number.EPSILON]) {
+      const seed = randomSeed(() => r);
+      expect(Number.isInteger(seed)).toBe(true);
+      expect(seed).toBeGreaterThanOrEqual(0);
+      expect(seed).toBeLessThanOrEqual(2_147_483_647);
+    }
   });
 });
