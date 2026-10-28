@@ -57,6 +57,16 @@ export async function createSwap(input: CreateSwapInput, now = new Date()): Prom
 }
 
 export async function acceptSwap(id: string, actorId: number, now = new Date()): Promise<Result> {
+  try {
+    return await acceptInTransaction(id, actorId, now);
+  } catch (e) {
+    // A claim committed between validation and the slot updates; nothing was written.
+    if (isUniqueViolation(e)) return fail("One of you already has a role on that Sunday.");
+    throw e;
+  }
+}
+
+function acceptInTransaction(id: string, actorId: number, now: Date): Promise<Result> {
   return db.transaction(async (tx) => {
     const [first] = await tx.select().from(swapRequests).where(eq(swapRequests.id, id));
     if (!first) return fail("Swap request not found.");
@@ -80,6 +90,7 @@ export async function acceptSwap(id: string, actorId: number, now = new Date()):
 
     // Re-read now that we hold the locks; another accept may have just committed.
     const [req] = await tx.select().from(swapRequests).where(eq(swapRequests.id, id));
+    if (!req) return fail("Swap request not found."); // e.g. its date was removed meanwhile
     if (req.status !== "pending") return fail(`This request is already ${req.status}.`);
     if (req.targetId !== actorId) return fail("Only the person being asked can accept.");
 
