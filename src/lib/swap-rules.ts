@@ -19,8 +19,17 @@ export type SwapVerdict = { ok: true } | { ok: false; reason: string };
 
 const no = (reason: string): SwapVerdict => ({ ok: false, reason });
 
+/**
+ * Why swaps cannot happen in this month status right now, or null if they can.
+ * A temporary condition: the caller should not mark a request invalid for it.
+ */
+export function swapStatusError(status: MonthStatus): string | null {
+  return canSwap(status) ? null : "Swaps are paused while the organiser reviews the schedule.";
+}
+
 export function validateSwap(c: SwapCheck): SwapVerdict {
-  if (!canSwap(c.status)) return no("Swaps are paused while the organiser reviews the schedule.");
+  const paused = swapStatusError(c.status);
+  if (paused) return no(paused);
   if (c.requesterId === c.targetId) return no("You can't swap with yourself.");
 
   const mine = c.slots.find((s) => s.id === c.requesterSlotId);

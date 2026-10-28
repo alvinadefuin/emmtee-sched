@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSwap, type SwapCheck, type SwapSlot } from "@/lib/swap-rules";
+import { swapStatusError, validateSwap, type SwapCheck, type SwapSlot } from "@/lib/swap-rules";
 import type { Role } from "@/lib/roles";
 
 // Two Sundays (dateId 100, 200). A=1, B=2, C=3, D=4.
@@ -68,5 +68,18 @@ describe("validateSwap", () => {
   it("rejects a hand-over to someone already serving that Sunday", () => {
     const r = validateSwap(exchange({ kind: "handover", targetId: 3, targetSlotId: null }));
     expect(r).toEqual({ ok: false, reason: "They already have a role on that Sunday." });
+  });
+});
+
+describe("swapStatusError", () => {
+  it("is null while swaps are allowed", () => {
+    expect(swapStatusError("open")).toBeNull();
+    expect(swapStatusError("published")).toBeNull();
+  });
+
+  it("explains the pause while locked or in draft, matching validateSwap", () => {
+    expect(swapStatusError("locked")).toMatch(/paused/);
+    expect(swapStatusError("draft")).toBe(swapStatusError("locked"));
+    expect(validateSwap(exchange({ status: "locked" }))).toEqual({ ok: false, reason: swapStatusError("locked") });
   });
 });

@@ -4,7 +4,7 @@ import { serviceDates, slots, swapRequests, volunteers } from "@/db/schema";
 import { effectiveStatus } from "@/lib/month-status";
 import { fail, notNull, type Result } from "@/lib/result";
 import type { SlotRole, SwapKind, SwapStatus } from "@/lib/roles";
-import { validateSwap } from "@/lib/swap-rules";
+import { swapStatusError, validateSwap } from "@/lib/swap-rules";
 import { isUniqueViolation } from "./errors";
 import { eligibilityMap, monthSlots, slotContext } from "./queries";
 
@@ -96,13 +96,17 @@ function acceptInTransaction(id: string, actorId: number, now: Date): Promise<Re
 
     const ctx = await slotContext(tx, req.requesterSlotId);
     if (!ctx) return fail("Slot not found.");
+    // A paused month is temporary: leave the request pending so it can be accepted later.
+    const status = effectiveStatus(ctx.status, ctx.deadline, now);
+    const paused = swapStatusError(status);
+    if (paused) return fail(paused);
     const verdict = validateSwap({
       kind: req.kind,
       requesterId: req.requesterId,
       requesterSlotId: req.requesterSlotId,
       targetId: req.targetId,
       targetSlotId: req.targetSlotId,
-      status: effectiveStatus(ctx.status, ctx.deadline, now),
+      status,
       slots: await monthSlots(tx, ctx.monthId),
       eligibility: await eligibilityMap(tx),
     });
