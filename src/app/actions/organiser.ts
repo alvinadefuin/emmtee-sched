@@ -15,7 +15,7 @@ import {
   transitionMonth,
   updateMonthSettings,
 } from "@/server/organiser";
-import { clearFailures, isLockedOut, recordFailure } from "@/server/rate-limit";
+import { clearFailures, reserveAttempt } from "@/server/rate-limit";
 import { updateVolunteer, upsertVolunteer } from "@/server/roster";
 import { clientIpHash, endSession, isOrganiser, startSession } from "../session";
 
@@ -42,11 +42,9 @@ function back(fd: FormData, msg: string): never {
 export async function loginAction(_prev: { error: string | null }, fd: FormData): Promise<{ error: string | null }> {
   const ip = await clientIpHash();
   const now = new Date();
-  if (await isLockedOut(ip, now)) return { error: "Too many attempts. Try again in 15 minutes." };
-  if (!pinMatches(str(fd, "pin"), process.env.ORGANISER_PIN ?? "")) {
-    await recordFailure(ip, now);
-    return { error: "Wrong PIN." };
-  }
+  // Reserve the attempt before comparing, so parallel guesses cannot slip past the limit.
+  if (!(await reserveAttempt(ip, now))) return { error: "Too many attempts. Try again in 15 minutes." };
+  if (!pinMatches(str(fd, "pin"), process.env.ORGANISER_PIN ?? "")) return { error: "Wrong PIN." };
   await clearFailures(ip);
   await startSession();
   redirect("/organiser");
