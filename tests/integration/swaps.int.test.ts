@@ -1,16 +1,21 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 const url = process.env.TEST_DATABASE_URL;
+// Every run wipes the database's tables, so refuse anything that could be the app's own.
+const safe = !!url && url !== process.env.DATABASE_URL;
+if (!safe) {
+  console.warn("Skipping integration tests: set TEST_DATABASE_URL to a test database that differs from DATABASE_URL.");
+}
 
 // Runs against the Neon `test` branch only. Every run wipes that branch's tables.
-describe.skipIf(!url)("swaps against the database", () => {
+describe.skipIf(!safe)("swaps against the database", () => {
   let mod!: {
     db: typeof import("@/db").db;
     schema: typeof import("@/db/schema");
     swaps: typeof import("@/server/swaps");
     sql: typeof import("drizzle-orm").sql;
   };
-  let ids!: { a: number; b: number; c: number; s1: number; s2: number; s3: number };
+  let ids!: { a: number; b: number; c: number; s1: number; s2: number; s3: number; d1: number };
 
   beforeEach(async () => {
     process.env.DATABASE_URL = url;
@@ -45,7 +50,11 @@ describe.skipIf(!url)("swaps against the database", () => {
         { serviceDateId: dates[2].id, role: "laptop" as const, volunteerId: c.id, source: "claimed" as const },
       ])
       .returning({ id: schema.slots.id });
-    ids = { a: a.id, b: b.id, c: c.id, s1: s1.id, s2: s2.id, s3: s3.id };
+    ids = { a: a.id, b: b.id, c: c.id, s1: s1.id, s2: s2.id, s3: s3.id, d1: dates[0].id };
+  });
+
+  afterAll(async () => {
+    await mod?.db.$client.end();
   });
 
   const holder = async (slotId: number) => {
@@ -54,6 +63,40 @@ describe.skipIf(!url)("swaps against the database", () => {
     const [row] = await db.select().from(schema.slots).where(eq(schema.slots.id, slotId));
     return row.volunteerId;
   };
+
+  const requestStatus = async (id: string) => {
+    const { db, schema } = mod;
+    const { eq } = await import("drizzle-orm");
+    const [row] = await db.select().from(schema.swapRequests).where(eq(schema.swapRequests.id, id));
+    return row.status;
+  };
+
+  it("hands a slot over when the target accepts", async () => {
+    const created = await mod.swaps.createSwap({
+      kind: "handover", requesterId: ids.a, requesterSlotId: ids.s1, targetId: ids.c, targetSlotId: null,
+    });
+    if (!created.ok) throw new Error(created.error);
+    expect(await mod.swaps.acceptSwap(created.id, ids.c)).toEqual({ ok: true });
+    expect(await holder(ids.s1)).toBe(ids.c);
+    expect(await requestStatus(created.id)).toBe("accepted");
+  });
+
+  it("exchanges two roles on the same Sunday", async () => {
+    const { db, schema } = mod;
+    // B also serves as photographer on A's Sunday; A and B trade roles that day.
+    await db.insert(schema.volunteerRoles).values([ids.a, ids.b].map((volunteerId) => ({ volunteerId, role: "photog" as const })));
+    const [s4] = await db
+      .insert(schema.slots)
+      .values({ serviceDateId: ids.d1, role: "photog" as const, volunteerId: ids.b, source: "claimed" as const })
+      .returning({ id: schema.slots.id });
+    const created = await mod.swaps.createSwap({
+      kind: "exchange", requesterId: ids.a, requesterSlotId: ids.s1, targetId: ids.b, targetSlotId: s4.id,
+    });
+    if (!created.ok) throw new Error(created.error);
+    expect(await mod.swaps.acceptSwap(created.id, ids.b)).toEqual({ ok: true });
+    expect(await holder(ids.s1)).toBe(ids.b);
+    expect(await holder(s4.id)).toBe(ids.a);
+  });
 
   it("exchanges two slots when the target accepts", async () => {
     const created = await mod.swaps.createSwap({
@@ -87,6 +130,9 @@ describe.skipIf(!url)("swaps against the database", () => {
 
     const results = await Promise.all([mod.swaps.acceptSwap(r1.id, ids.b), mod.swaps.acceptSwap(r2.id, ids.a)]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
+    const [winner, loser] = results[0].ok ? [r1.id, r2.id] : [r2.id, r1.id];
+    expect(await requestStatus(winner)).toBe("accepted");
+    expect(await requestStatus(loser)).toBe("cancelled");
 
     const holders = [await holder(ids.s1), await holder(ids.s2), await holder(ids.s3)];
     expect(new Set(holders).size).toBe(3); // nobody lost or duplicated
