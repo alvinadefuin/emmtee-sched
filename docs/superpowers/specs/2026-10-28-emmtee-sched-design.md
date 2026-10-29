@@ -83,6 +83,7 @@ Functions:
 - **Lock / Auto-fill / Draft review:** see §7.
 - **Manual edit:** set or clear any slot at any status.
 - **Publish / Unpublish.**
+- **Reset month:** from any status, in a collapsed "Danger zone" that needs the word RESET typed (re-checked on the server). In one transaction it clears every slot (name and source), cancels all pending swap requests on the month (reason "The organiser reset the month."), clears the stored auto-fill seed and sets the status to `open`. It keeps the month, dates, deadline, theme, notes, poster and accepted/declined swap history. If the deadline has passed the poll reads as locked, and the message says to move the deadline later.
 
 ### 4.4 `/api/months/[yyyy-mm]/image` — Schedule PNG
 

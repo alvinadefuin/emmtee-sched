@@ -1,4 +1,4 @@
-import { addDateAction, autofillAction, removeDateAction, setSlotAction, transitionAction, updateMonthAction } from "@/app/actions/organiser";
+import { addDateAction, autofillAction, removeDateAction, resetMonthAction, setSlotAction, transitionAction, updateMonthAction } from "@/app/actions/organiser";
 import { manilaInputValue, monthLabel, shortDate, ym } from "@/lib/dates";
 import { emptyRequiredSlots } from "@/lib/required-slots";
 import { ROLE_LABEL, SLOT_ROLES, THEMES } from "@/lib/roles";
@@ -144,6 +144,27 @@ export function MonthPanel({ view }: { view: MonthView }) {
         <ul className="list-disc pb-4 pl-5 text-sm [overflow-wrap:anywhere]">
           {volunteerSummary(allSlots).map((line) => <li key={line} className="py-0.5">{line}</li>)}
         </ul>
+      </details>
+
+      <details className="group rounded-2xl border border-danger-text bg-danger-soft px-4">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 font-semibold text-danger-text [&::-webkit-details-marker]:hidden">
+          Danger zone
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-open:rotate-180">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </summary>
+        <form action={resetMonthAction} className="flex flex-col gap-3 pb-4 text-sm">
+          {hidden}
+          <p className="text-danger-text">
+            <strong>Reset month</strong> removes every volunteer name from this month and cancels all pending swap requests. It keeps the
+            month, its dates, the deadline, theme, notes and poster, and the record of accepted and declined swaps. The poll is set to open
+            again; if the deadline has passed, it stays locked until you move the deadline later. This cannot be undone.
+          </p>
+          <label className={`${label} text-danger-text`}>Type RESET to confirm
+            <input type="text" name="confirm" autoComplete="off" autoCapitalize="characters" spellCheck={false} className="field text-base" />
+          </label>
+          <button className="btn btn-danger w-full sm:w-auto sm:self-start">Reset month</button>
+        </form>
       </details>
     </section>
   );

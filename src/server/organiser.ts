@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { months, serviceDates, slots } from "@/db/schema";
 import { autofill, changedSlotIds } from "@/lib/autofill";
 import { defaultDeadline, isDateInMonth, sundaysInMonth } from "@/lib/dates";
+import { resetMessage } from "@/lib/month-reset";
 import { effectiveStatus, planTransition, type MonthOp } from "@/lib/month-status";
 import { clearSlotError, emptyRequiredSlots } from "@/lib/required-slots";
 import { nextPoster } from "@/lib/poster-rotation";
@@ -169,4 +170,29 @@ export async function runAutofill(monthId: number, seed: number, now = new Date(
     if (isUniqueViolation(e)) return fail("The schedule changed during auto-fill. Please try again.");
     throw e;
   }
+}
+
+/**
+ * Clears every name from the month and reopens it, in one transaction. Pending swaps on
+ * its slots are cancelled; accepted and declined history, dates, deadline, theme, notes
+ * and poster stay. The message says whether a passed deadline keeps the poll locked.
+ */
+export async function resetMonth(monthId: number, now = new Date()): Promise<Result<{ message: string }>> {
+  return db.transaction(async (tx) => {
+    const [m] = await tx.select({ deadline: months.deadline }).from(months).where(eq(months.id, monthId)).for("update");
+    if (!m) return fail("Month not found.");
+    const rows = await tx
+      .select({ id: slots.id })
+      .from(slots)
+      .innerJoin(serviceDates, eq(slots.serviceDateId, serviceDates.id))
+      .where(eq(serviceDates.monthId, monthId))
+      .for("update", { of: slots });
+    const slotIds = rows.map((r) => r.id);
+    await cancelPendingSwaps(tx, slotIds, "The organiser reset the month.", now);
+    if (slotIds.length) {
+      await tx.update(slots).set({ volunteerId: null, source: null, updatedAt: now }).where(inArray(slots.id, slotIds));
+    }
+    await tx.update(months).set({ status: "open", autofillSeed: null }).where(eq(months.id, monthId));
+    return { ok: true as const, message: resetMessage(m.deadline, now) };
+  });
 }

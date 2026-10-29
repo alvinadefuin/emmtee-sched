@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomSeed } from "@/lib/autofill";
+import { confirmsReset } from "@/lib/month-reset";
 import { parseManilaInput } from "@/lib/dates";
 import { pinMatches } from "@/lib/pin";
 import { ROLES, THEMES, type Role, type Theme } from "@/lib/roles";
@@ -11,6 +12,7 @@ import {
   addServiceDate,
   createMonth,
   removeServiceDate,
+  resetMonth,
   runAutofill,
   setSlotManually,
   transitionMonth,
@@ -135,4 +137,13 @@ export async function updateVolunteerAction(fd: FormData): Promise<void> {
   if (id === null) back(fd, "Invalid request.", true);
   const r = await updateVolunteer(id, { active: fd.get("active") === "on", roles: roles(fd), posterOrder: int(fd, "posterOrder") });
   back(fd, r.ok ? "Volunteer updated." : r.error, !r.ok);
+}
+
+export async function resetMonthAction(fd: FormData): Promise<void> {
+  await guard();
+  const monthId = int(fd, "monthId");
+  if (monthId === null) back(fd, "Invalid request.", true);
+  if (!confirmsReset(str(fd, "confirm"))) back(fd, "Type RESET to confirm. Nothing was changed.", true);
+  const r = await resetMonth(monthId);
+  back(fd, r.ok ? r.message : r.error, !r.ok);
 }
