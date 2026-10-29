@@ -56,3 +56,17 @@ describe("planTransition", () => {
     expect(planTransition("published", deadline, after, "lock")).toEqual({ ok: false, error: "Can't lock from the current status." });
   });
 });
+
+describe("planTransition publish guard", () => {
+  const empty = [{ date: "2026-11-08", role: "photog" as const, volunteerId: null }];
+  it("blocks publish when required slots are empty", () => {
+    const r = planTransition("draft", deadline, after, "publish", empty);
+    expect(r).toEqual({ ok: false, error: expect.stringContaining("Nov 8 Photog") });
+  });
+  it("allows publish when none are empty", () => {
+    expect(planTransition("draft", deadline, after, "publish", [])).toEqual({ ok: true, to: "published" });
+  });
+  it("ignores empty slots for other ops", () => {
+    expect(planTransition("published", deadline, after, "unpublish", empty)).toEqual({ ok: true, to: "draft" });
+  });
+});

@@ -33,3 +33,7 @@ export type MonthStatus = (typeof MONTH_STATUSES)[number];
 
 export const THEMES = ["teal", "peach"] as const;
 export type Theme = (typeof THEMES)[number];
+
+/** Roles that must never be blank on a published schedule. Laptop Assist is optional. */
+export const REQUIRED_ROLES = ["laptop", "photog"] as const satisfies readonly SlotRole[];
+export const isRequiredRole = (role: SlotRole): boolean => (REQUIRED_ROLES as readonly SlotRole[]).includes(role);

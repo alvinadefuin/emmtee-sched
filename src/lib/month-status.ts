@@ -1,4 +1,5 @@
 import { fail, type Result } from "./result";
+import { publishBlockMessage, type SlotLike } from "./required-slots";
 import type { MonthStatus } from "./roles";
 
 /** The stored status, except an open poll past its deadline counts as locked. */
@@ -26,12 +27,16 @@ export function nextStatus(current: MonthStatus, op: MonthOp): MonthStatus | nul
 }
 
 /** Works out a month transition from the stored status, with a message when it is not allowed. */
-export function planTransition(stored: MonthStatus, deadline: Date, now: Date, op: MonthOp): Result<{ to: MonthStatus }> {
+export function planTransition(stored: MonthStatus, deadline: Date, now: Date, op: MonthOp, emptyRequired: readonly SlotLike[] = []): Result<{ to: MonthStatus }> {
   // An open poll past its deadline already reads as locked; locking it just stores that.
   if (op === "lock" && stored === "open") return { ok: true, to: "locked" };
   const current = effectiveStatus(stored, deadline, now);
   const to = nextStatus(current, op);
   if (!to) return fail(op === "reopen" && current === "open" ? "The poll is already open." : `Can't ${op} from the current status.`);
+  if (op === "publish") {
+    const blocked = publishBlockMessage(emptyRequired);
+    if (blocked) return fail(blocked);
+  }
   if (op === "reopen" && deadline.getTime() <= now.getTime()) return fail("Move the deadline later before reopening the poll.");
   return { ok: true, to };
 }

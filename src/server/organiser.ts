@@ -4,9 +4,10 @@ import { months, serviceDates, slots } from "@/db/schema";
 import { autofill, changedSlotIds } from "@/lib/autofill";
 import { defaultDeadline, isDateInMonth, sundaysInMonth } from "@/lib/dates";
 import { effectiveStatus, planTransition, type MonthOp } from "@/lib/month-status";
+import { clearSlotError, emptyRequiredSlots } from "@/lib/required-slots";
 import { nextPoster } from "@/lib/poster-rotation";
 import { fail, type Result } from "@/lib/result";
-import { isSlotRole, SLOT_ROLES, type Theme } from "@/lib/roles";
+import { isSlotRole, REQUIRED_ROLES, SLOT_ROLES, type Theme } from "@/lib/roles";
 import { isUniqueViolation } from "./errors";
 import { cancelPendingSwaps } from "./queries";
 import { listVolunteers } from "./roster";
@@ -81,11 +82,15 @@ export async function setSlotManually(slotId: number, volunteerId: number | null
   try {
     return await db.transaction(async (tx) => {
       const [current] = await tx
-        .select({ volunteerId: slots.volunteerId })
+        .select({ volunteerId: slots.volunteerId, role: slots.role, status: months.status })
         .from(slots)
+        .innerJoin(serviceDates, eq(slots.serviceDateId, serviceDates.id))
+        .innerJoin(months, eq(serviceDates.monthId, months.id))
         .where(eq(slots.id, slotId))
-        .for("update");
+        .for("update", { of: slots });
       if (!current) return fail("Slot not found.");
+      const refusal = clearSlotError(current.role, current.status, volunteerId);
+      if (refusal) return fail(refusal);
       await tx
         .update(slots)
         .set({ volunteerId, source: volunteerId === null ? null : "manual", updatedAt: now })
@@ -104,7 +109,16 @@ export async function setSlotManually(slotId: number, volunteerId: number | null
 export async function transitionMonth(monthId: number, op: MonthOp, now = new Date()): Promise<Result> {
   const [m] = await db.select().from(months).where(eq(months.id, monthId));
   if (!m) return fail("Month not found.");
-  const plan = planTransition(m.status, m.deadline, now, op);
+  // Only publishing needs the slots; read the month's required ones just then.
+  const required =
+    op === "publish"
+      ? await db
+          .select({ date: serviceDates.date, role: slots.role, volunteerId: slots.volunteerId })
+          .from(slots)
+          .innerJoin(serviceDates, eq(slots.serviceDateId, serviceDates.id))
+          .where(and(eq(serviceDates.monthId, monthId), inArray(slots.role, [...REQUIRED_ROLES])))
+      : [];
+  const plan = planTransition(m.status, m.deadline, now, op, emptyRequiredSlots(required));
   if (!plan.ok) return plan;
   await db.update(months).set({ status: plan.to }).where(eq(months.id, monthId));
   return { ok: true };
