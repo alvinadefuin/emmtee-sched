@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { THEME_COLOR, THEME_KEY } from "@/app/theme";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
@@ -14,7 +15,7 @@ export function SiteHeader() {
           </span>
           <span className="truncate font-display text-lg font-semibold tracking-tight">Volunteer Schedule</span>
         </Link>
-        <ThemeToggle />
+        <ThemeToggle storageKey={THEME_KEY} colors={THEME_COLOR} />
       </div>
     </header>
   );

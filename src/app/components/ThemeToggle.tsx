@@ -1,15 +1,15 @@
 "use client";
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
-import { THEME_COLOR, THEME_KEY, type ThemeName } from "@/app/theme";
+import type { ThemeName } from "@/app/theme";
 
 const listeners = new Set<() => void>();
 // Fallback when storage is blocked (private mode): the choice lasts for this tab only.
 let memory: ThemeName | null = null;
 
-function stored(): ThemeName {
+function stored(storageKey: string): ThemeName {
   try {
-    const v = localStorage.getItem(THEME_KEY);
+    const v = localStorage.getItem(storageKey);
     if (v === "light" || v === "dark") return v;
   } catch {
     // Storage blocked; fall through.
@@ -19,9 +19,9 @@ function stored(): ThemeName {
 
 const current = (): ThemeName => (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
 
-function apply(theme: ThemeName) {
+function apply(theme: ThemeName, colors: Record<ThemeName, string>) {
   document.documentElement.setAttribute("data-theme", theme);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[theme]);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", colors[theme]);
   listeners.forEach((l) => l());
 }
 
@@ -32,24 +32,26 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function ThemeToggle() {
+// Constants arrive as props (not imported) so webpack does not concatenate this module with
+// theme.ts: Next 16.3 drops a concatenated client module from the manifest when its id is 0.
+export function ThemeToggle({ storageKey, colors }: { storageKey: string; colors: Record<ThemeName, string> }) {
   const theme = useSyncExternalStore(subscribe, current, () => "dark" as const);
 
   // The head script sets the theme before paint; this re-applies it after React's dev remount
   // resets <html> attributes, and syncs theme-color if the meta tag arrived after the script ran.
   useLayoutEffect(() => {
-    apply(stored());
-  }, []);
+    apply(stored(storageKey), colors);
+  }, [storageKey, colors]);
 
   function toggle() {
     const next: ThemeName = theme === "dark" ? "light" : "dark";
     memory = next;
     try {
-      localStorage.setItem(THEME_KEY, next);
+      localStorage.setItem(storageKey, next);
     } catch {
       // Storage blocked; `memory` keeps the choice for this tab.
     }
-    apply(next);
+    apply(next, colors);
   }
 
   const label = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
