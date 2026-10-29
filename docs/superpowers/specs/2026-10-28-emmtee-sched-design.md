@@ -88,6 +88,15 @@ Functions:
 
 Returns the published schedule as PNG (see §8). Returns 404 for unpublished months.
 
+### 4.5 Live updates
+
+Open pages pick up other people's changes without a manual reload.
+
+- **Version endpoints.** `GET /api/months/[yyyy-mm|latest]/version` and `GET /api/swaps/[id]/version` return `{ "v": "<16 hex>" }`, a SHA-256 fingerprint of a canonical, order-independent serialisation of what the page shows: for a month, the month list, stored and effective status (an open month past its deadline counts as locked), deadline, theme, poster, notes, service dates, slot holders, the month's swap requests (id and status) and the roster (names, active, roles, poster order); for a swap, its status and reason, its slots' holders, the month's effective status and the roster names. `latest` follows the month the poll page shows. The value is opaque, so it is safe to expose publicly. Unknown months or swaps return 404. Responses are dynamic and sent with `Cache-Control: no-store`.
+- **Polling.** A client component (`LiveRefresh`) fetches the version every 10 s while the tab is visible, stops while it is hidden, and checks at once when the tab becomes visible, gains focus or comes back online. One request at a time; network errors are ignored until the next tick. When the version changes it calls `router.refresh()`, which re-renders server data while keeping client state (chosen name, open pickers, scroll).
+- **Organiser edit protection.** On `/organiser` a refresh is held back while focus is in an input, select or textarea, or while any form has unsaved changes (forms touched by input events, confirmed by comparing values with their rendered defaults, and cleared on submit). The held refresh is applied as soon as it is safe.
+- **Why not push.** Vercel functions are short-lived and cannot hold WebSocket or long-lived SSE connections cheaply, and a hosted pub/sub service would add a dependency for a small group of users. Polling a tiny, uncached endpoint every 10 s is simple and costs a few small queries per open page.
+
 ## 5. Month lifecycle and deadline
 
 ```
