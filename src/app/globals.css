@@ -219,7 +219,9 @@ body::before {
   .link {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     min-height: 2.75rem;
+    min-width: 2.75rem;
     color: var(--accent);
     font-weight: 600;
     text-decoration: underline;
@@ -255,6 +257,16 @@ body::before {
   }
   .field:hover {
     border-color: var(--accent);
+  }
+  /* iOS Safari: date inputs collapse and centre their value unless reset. */
+  input[type="date"].field,
+  input[type="datetime-local"].field {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+  }
+  .field::-webkit-date-and-time-value {
+    text-align: left;
   }
   .field-auto {
     background: var(--peach-soft);
