@@ -142,6 +142,15 @@ Algorithm (deterministic given a seed; seed stored with the draft):
 
 The organiser can manually edit any draft slot, re-run auto-fill (which discards previous `auto` slots only), or publish.
 
+### 7.1 Required roles
+
+Laptop Assist is optional. Laptop Operator and Photog must never be blank on a published schedule (`REQUIRED_ROLES` in `src/lib/roles.ts`).
+
+- **Publish guard:** `publish` is refused while any Operator or Photog slot in the month is empty; the message names the empty slots. The organiser can fill them or remove the date. The Publish button is disabled with the reason shown, and the server enforces it regardless.
+- **Published months:** the organiser cannot clear an Operator or Photog slot (replacing it is fine); Assist can still be cleared. Unpublish first to leave a required slot empty.
+- **Poll page:** an unclaimed Operator or Photog slot is marked "Needed"; an unclaimed Assist slot is marked "Optional".
+- Auto-fill is unchanged; unfillable required slots are listed and must be resolved by hand before publishing.
+
 ## 8. Shareable image
 
 - **Size:** 1500×2000 PNG, portrait.
