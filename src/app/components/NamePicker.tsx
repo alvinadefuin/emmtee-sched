@@ -14,19 +14,21 @@ export function NamePicker({
   const current = volunteers.find((v) => v.id === me);
   if (current) {
     return (
-      <p className="text-sm">
-        You are <strong>{current.name}</strong>.{" "}
-        <button type="button" className="underline" onClick={() => onChange(null)}>
+      <p className="flex flex-wrap items-center gap-x-2">
+        <span>
+          You are <strong>{current.name}</strong>.
+        </span>
+        <button type="button" className="link text-sm" onClick={() => onChange(null)}>
           Not you?
         </button>
       </p>
     );
   }
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      Who are you?
+    <label className="flex flex-col gap-2">
+      <span className="font-semibold">Who are you?</span>
       <select
-        className="rounded border px-3 py-2 text-base"
+        className="field sm:max-w-sm"
         defaultValue=""
         onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
       >

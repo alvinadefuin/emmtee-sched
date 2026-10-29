@@ -7,7 +7,11 @@ export default async function Home() {
   const id = await getLatestMonthId();
   const view = id ? await getMonthView(id) : null;
   if (!view) {
-    return <main className="mx-auto max-w-3xl px-4 py-12 text-center text-neutral-600">No schedule has been opened yet.</main>;
+    return (
+      <main className="page-x page-bottom mx-auto w-full max-w-3xl pt-16">
+        <p className="card p-8 text-center text-muted">No schedule has been opened yet.</p>
+      </main>
+    );
   }
   return <PollView view={view} />;
 }

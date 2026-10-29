@@ -27,11 +27,11 @@ export function ShareImageButton({ ym, title }: { ym: string; title: string }) {
   }
 
   return (
-    <div>
-      <button type="button" onClick={share} className="rounded bg-black px-4 py-2 text-white">
+    <div className="flex flex-col items-start gap-2">
+      <button type="button" onClick={share} className="btn btn-primary w-full sm:w-auto">
         Share schedule image
       </button>
-      {error && <p className="mt-1 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </div>
   );
 }
