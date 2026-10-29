@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { SiteHeader } from "./components/SiteHeader";
+import { ToastProvider } from "./components/Toaster";
 import { THEME_COLOR, THEME_INIT_SCRIPT } from "./theme";
 import "./globals.css";
 
@@ -23,8 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        {children}
+        <ToastProvider>
+          <SiteHeader />
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

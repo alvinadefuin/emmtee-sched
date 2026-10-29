@@ -354,6 +354,74 @@ body::before {
     font-weight: 700;
   }
 
+  /*
+   * Toasts: fixed to the bottom, clear of the iPhone home bar. Full width minus 16px gutters
+   * on phones, a 24rem column at the bottom-right from 640px. Above the sticky header (z 20).
+   * Colour pairs are the contrast-checked ones: accent-text/accent-soft, danger-text/danger-soft, fg/raised.
+   */
+  .toast-viewport {
+    position: fixed;
+    z-index: 40;
+    left: max(1rem, env(safe-area-inset-left));
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    pointer-events: none;
+  }
+  @media (min-width: 640px) {
+    .toast-viewport {
+      left: auto;
+      right: max(1.5rem, env(safe-area-inset-right));
+      bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+      width: 24rem;
+    }
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0 0 0 0.875rem;
+    border: 1px solid var(--line-strong);
+    border-left-width: 4px;
+    border-radius: 1rem;
+    background: var(--raised);
+    color: var(--fg);
+    box-shadow: var(--shadow), 0 18px 40px -16px var(--bg);
+    animation: toast-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .toast-success {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+  .toast-error {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger-text);
+  }
+  .toast-info {
+    border-left-color: var(--accent);
+  }
+  /* Actions and the close button take the toast's own text colour (a checked pair). */
+  .toast-action {
+    color: inherit;
+  }
+  .toast-close {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    color: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .toast-close:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+
   .tnum {
     font-variant-numeric: tabular-nums;
   }
@@ -375,6 +443,13 @@ body::before {
   }
 }
 
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -383,7 +458,8 @@ body::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise {
+  .rise,
+  .toast {
     animation: none;
   }
   .btn {
