@@ -1,5 +1,6 @@
 import { addDateAction, autofillAction, removeDateAction, setSlotAction, transitionAction, updateMonthAction } from "@/app/actions/organiser";
 import { manilaInputValue, monthLabel, shortDate, ym } from "@/lib/dates";
+import { emptyRequiredSlots } from "@/lib/required-slots";
 import { ROLE_LABEL, SLOT_ROLES, THEMES } from "@/lib/roles";
 import { volunteerSummary } from "@/lib/summary";
 import type { MonthView } from "@/server/month-view";
@@ -23,7 +24,7 @@ export function MonthPanel({ view }: { view: MonthView }) {
     </>
   );
   const allSlots = view.dates.flatMap((d) => SLOT_ROLES.map((r) => d.slots[r]));
-  const unfilled = allSlots.filter((s) => s.volunteerId === null && s.role !== "assist");
+  const unfilled = emptyRequiredSlots(allSlots);
   const posters = view.volunteers.filter((v) => v.roles.includes("poster"));
   const op = (name: string, label: string) => (
     <form action={transitionAction}>
@@ -45,7 +46,13 @@ export function MonthPanel({ view }: { view: MonthView }) {
         {(view.status === "locked" || view.status === "draft") && (
           <form action={autofillAction}>{hidden}<button className={btn}>Auto-fill (draft)</button></form>
         )}
-        {(view.status === "locked" || view.status === "draft") && op("publish", "Publish")}
+        {(view.status === "locked" || view.status === "draft") && (
+          <form action={transitionAction}>
+            {hidden}
+            <input type="hidden" name="op" value="publish" />
+            <button className={btn} disabled={unfilled.length > 0} aria-describedby={unfilled.length > 0 ? "publish-blocked" : undefined}>Publish</button>
+          </form>
+        )}
         {(view.status === "locked" || view.status === "draft") && op("reopen", "Reopen poll")}
         {view.status === "published" && op("unpublish", "Unpublish")}
         <a className={btn} href={`/api/months/${key}/image`} target="_blank" rel="noreferrer">Preview image</a>
@@ -74,8 +81,8 @@ export function MonthPanel({ view }: { view: MonthView }) {
       </form>
 
       {unfilled.length > 0 && (
-        <p className="rounded-xl border border-warn bg-warn-soft p-3 text-sm text-warn-text">
-          <strong>Empty:</strong> {unfilled.map((s) => `${shortDate(s.date)} ${ROLE_LABEL[s.role]}`).join(", ")}
+        <p id="publish-blocked" role="status" className="rounded-xl border border-warn bg-warn-soft p-3 text-sm text-warn-text">
+          <strong>Publishing is blocked until every Operator and Photog slot is filled or its date is removed.</strong> Empty: {unfilled.map((s) => `${shortDate(s.date)} ${ROLE_LABEL[s.role]}`).join(", ")}.
         </p>
       )}
 

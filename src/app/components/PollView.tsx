@@ -5,7 +5,7 @@ import { useState, useTransition, type CSSProperties } from "react";
 import { claimAction, createSwapAction, releaseAction } from "@/app/actions/poll";
 import { monthLabel, shortDate, ym } from "@/lib/dates";
 import { canClaim, canSwap } from "@/lib/month-status";
-import { ROLE_LABEL, ROLE_SHORT, SLOT_ROLES } from "@/lib/roles";
+import { isRequiredRole, ROLE_LABEL, ROLE_SHORT, SLOT_ROLES, type SlotRole } from "@/lib/roles";
 import type { Result } from "@/lib/result";
 import { swapMessage } from "@/lib/swap-message";
 import type { MonthView, SlotView } from "@/server/month-view";
@@ -37,6 +37,15 @@ function Unfilled() {
       <span aria-hidden="true">—</span>
       <span className="sr-only">Nobody yet</span>
     </span>
+  );
+}
+
+/** Marks an unclaimed slot: Operator and Photog are needed, Assist is optional. */
+function NeedTag({ role }: { role: SlotRole }) {
+  return isRequiredRole(role) ? (
+    <span className="badge bg-warn-soft py-0.5 text-xs text-warn-text">Needed</span>
+  ) : (
+    <span className="text-xs text-muted">Optional</span>
   );
 }
 
@@ -224,7 +233,10 @@ export function PollView({ view }: { view: MonthView }) {
             <dl className="flex flex-col divide-y divide-line">
               {SLOT_ROLES.map((r) => (
                 <div key={r} className="flex flex-col gap-1 py-3">
-                  <dt className="eyebrow">{ROLE_LABEL[r]}</dt>
+                  <dt className="eyebrow flex flex-wrap items-center gap-2">
+                    {ROLE_LABEL[r]}
+                    {d.slots[r].volunteerId === null && <NeedTag role={r} />}
+                  </dt>
                   <dd className="min-w-0">{renderCell(d.slots[r])}</dd>
                 </div>
               ))}
