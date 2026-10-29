@@ -2,7 +2,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { months, serviceDates, slots, swapRequests, volunteers } from "@/db/schema";
 import { effectiveStatus } from "@/lib/month-status";
-import { SLOT_ROLES, type MonthStatus, type SlotRole, type SlotSource, type SwapKind, type Theme } from "@/lib/roles";
+import { SLOT_ROLES, type MonthStatus, type SlotRole, type SlotSource, type SwapKind, type SwapStatus, type Theme } from "@/lib/roles";
 import { listVolunteers, type VolunteerView } from "./roster";
 
 export type SlotView = {
@@ -36,6 +36,8 @@ export type MonthView = {
   dates: DateView[];
   volunteers: VolunteerView[];
   pendingSwaps: SwapView[];
+  /** Requests in this month that were accepted or declined, so a requester can be told the outcome. */
+  resolvedSwaps: (SwapView & { status: Extract<SwapStatus, "accepted" | "declined"> })[];
 };
 
 /** Every month, newest first, with its effective status (an open poll past its deadline reads as "locked"). */
@@ -91,7 +93,12 @@ export async function getMonthView(monthId: number, now = new Date()): Promise<M
     ? await db
         .select()
         .from(swapRequests)
-        .where(and(eq(swapRequests.status, "pending"), inArray(swapRequests.requesterSlotId, slotIds)))
+        .where(
+          and(
+            inArray(swapRequests.status, ["pending", "accepted", "declined"]),
+            inArray(swapRequests.requesterSlotId, slotIds),
+          ),
+        )
     : [];
 
   const vols = await listVolunteers();
@@ -117,13 +124,20 @@ export async function getMonthView(monthId: number, now = new Date()): Promise<M
       ) as Record<SlotRole, SlotView>,
     })),
     volunteers: vols,
-    pendingSwaps: swapRows.map((s) => ({
-      id: s.id,
-      kind: s.kind,
-      requesterId: s.requesterId,
-      targetId: s.targetId,
-      requesterSlotId: s.requesterSlotId,
-      targetSlotId: s.targetSlotId,
-    })),
+    pendingSwaps: swapRows.filter((s) => s.status === "pending").map(swapView),
+    resolvedSwaps: swapRows.flatMap((s) =>
+      s.status === "accepted" || s.status === "declined" ? [{ ...swapView(s), status: s.status }] : [],
+    ),
+  };
+}
+
+function swapView(s: typeof swapRequests.$inferSelect): SwapView {
+  return {
+    id: s.id,
+    kind: s.kind,
+    requesterId: s.requesterId,
+    targetId: s.targetId,
+    requesterSlotId: s.requesterSlotId,
+    targetSlotId: s.targetSlotId,
   };
 }

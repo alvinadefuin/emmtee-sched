@@ -15,6 +15,7 @@ import { SharePanel } from "./SharePanel";
 import { ShareImageButton } from "./ShareImageButton";
 import { useToast } from "./Toaster";
 import { useMe } from "./use-me";
+import { useSwapNotices } from "./use-swap-notices";
 
 type Picking = { mode: "exchange"; target: SlotView } | { mode: "handover"; mine: SlotView } | null;
 
@@ -66,6 +67,7 @@ export function PollView({ view }: { view: MonthView }) {
   const [busy, startTransition] = useTransition();
   const pickerRef = useRef<HTMLDivElement>(null);
   const shareRef = useRef<HTMLDivElement>(null);
+  useSwapNotices(view, me);
 
   // The picker opens above the dates; bring it into view when it was opened further down the page.
   useEffect(() => {
