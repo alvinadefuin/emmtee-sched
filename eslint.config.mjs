@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local-only, gitignored folders (roster, scratch work).
+    "local/**",
+    "scratch/**",
   ]),
 ]);
 
