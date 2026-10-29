@@ -1,9 +1,11 @@
 import { addDateAction, autofillAction, removeDateAction, resetMonthAction, setSlotAction, transitionAction, updateMonthAction } from "@/app/actions/organiser";
 import { manilaInputValue, monthLabel, shortDate, ym } from "@/lib/dates";
+import { announcementText } from "@/lib/announcement";
 import { emptyRequiredSlots } from "@/lib/required-slots";
 import { ROLE_LABEL, SLOT_ROLES, THEMES } from "@/lib/roles";
 import { volunteerSummary } from "@/lib/summary";
 import type { MonthView } from "@/server/month-view";
+import { AnnounceCard } from "./AnnounceCard";
 import { imageVersion } from "@/app/components/image-version";
 import { ShareImageButton } from "@/app/components/ShareImageButton";
 
@@ -17,7 +19,7 @@ const STATUS_TONE = {
   published: "bg-accent text-on-accent",
 } as const;
 
-export function MonthPanel({ view }: { view: MonthView }) {
+export function MonthPanel({ view, siteUrl }: { view: MonthView; siteUrl: string }) {
   const key = ym(view.year, view.month);
   const hidden = (
     <>
@@ -42,6 +44,10 @@ export function MonthPanel({ view }: { view: MonthView }) {
         <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{monthLabel(view.year, view.month)}</h2>
         <span className={`badge ${STATUS_TONE[view.status]}`}>{view.status}</span>
       </div>
+
+      {view.status === "open" && (
+        <AnnounceCard text={announcementText({ monthLabel: monthLabel(view.year, view.month), url: siteUrl, deadline: view.deadline })} />
+      )}
 
       <div className="flex flex-wrap gap-2">
         {view.status === "open" && op("lock", "Lock poll now")}

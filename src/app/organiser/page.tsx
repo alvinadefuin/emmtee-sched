@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import { createMonthAction, logoutAction } from "@/app/actions/organiser";
 import { isOrganiser } from "@/app/session";
@@ -22,6 +23,11 @@ export default async function OrganiserPage({ searchParams }: { searchParams: Pr
   const selectedId = picked ? await getMonthIdByYm(picked.year, picked.month) : (all[0]?.id ?? null);
   const view = selectedId ? await getMonthView(selectedId) : null;
   const volunteers = await listVolunteers();
+  // The poll's public address for the announcement, taken from this request so it is right on any deployment.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const siteUrl = `${proto}://${host}`;
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1);
 
@@ -63,7 +69,7 @@ export default async function OrganiserPage({ searchParams }: { searchParams: Pr
         </form>
       </section>
 
-      {view && <MonthPanel view={view} />}
+      {view && <MonthPanel view={view} siteUrl={siteUrl} />}
       <RosterPanel volunteers={volunteers} ymKey={view ? ym(view.year, view.month) : null} />
       <OrganiserLiveRefresh url={`/api/months/${view ? ym(view.year, view.month) : "latest"}/version`} />
     </main>
