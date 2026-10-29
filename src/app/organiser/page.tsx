@@ -7,6 +7,7 @@ import { getMonthIdByYm, getMonthView, listMonths } from "@/server/month-view";
 import { listVolunteers } from "@/server/roster";
 import { LoginForm } from "./LoginForm";
 import { MonthPanel } from "./MonthPanel";
+import { OrganiserLiveRefresh } from "./OrganiserLiveRefresh";
 import { RosterPanel } from "./RosterPanel";
 
 export default async function OrganiserPage({ searchParams }: { searchParams: Promise<{ m?: string; msg?: string }> }) {
@@ -60,6 +61,7 @@ export default async function OrganiserPage({ searchParams }: { searchParams: Pr
 
       {view && <MonthPanel view={view} />}
       <RosterPanel volunteers={volunteers} ymKey={view ? ym(view.year, view.month) : null} />
+      <OrganiserLiveRefresh url={`/api/months/${view ? ym(view.year, view.month) : "latest"}/version`} />
     </main>
   );
 }
