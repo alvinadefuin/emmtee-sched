@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import { claimAction, createSwapAction, releaseAction } from "@/app/actions/poll";
 import { monthLabel, shortDate, ym } from "@/lib/dates";
 import { canClaim, canSwap } from "@/lib/month-status";
@@ -13,6 +13,7 @@ import { Countdown } from "./Countdown";
 import { NamePicker } from "./NamePicker";
 import { SharePanel } from "./SharePanel";
 import { ShareImageButton } from "./ShareImageButton";
+import { useToast } from "./Toaster";
 import { useMe } from "./use-me";
 
 type Picking = { mode: "exchange"; target: SlotView } | { mode: "handover"; mine: SlotView } | null;
@@ -49,12 +50,27 @@ function NeedTag({ role }: { role: SlotRole }) {
   );
 }
 
+/** Scrolls a section into view below the sticky header (smoothly unless reduced motion is on), optionally moving focus to it. */
+function revealSection(el: HTMLElement | null, focus = false) {
+  if (!el) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  if (focus) el.focus({ preventScroll: true });
+}
+
 export function PollView({ view }: { view: MonthView }) {
   const [me, setMe] = useMe();
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [picking, setPicking] = useState<Picking>(null);
   const [shareText, setShareText] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const shareRef = useRef<HTMLDivElement>(null);
+
+  // The picker opens above the dates; bring it into view when it was opened further down the page.
+  useEffect(() => {
+    if (picking) revealSection(pickerRef.current);
+  }, [picking]);
 
   const meV = view.volunteers.find((v) => v.id === me) ?? null;
   const allSlots = view.dates.flatMap((d) => SLOT_ROLES.map((r) => d.slots[r]));
@@ -63,18 +79,19 @@ export function PollView({ view }: { view: MonthView }) {
   const outgoing = view.pendingSwaps.filter((s) => s.requesterId === me);
   const rolesOf = (id: number | null) => view.volunteers.find((v) => v.id === id)?.roles ?? [];
 
-  function run(action: () => Promise<Result>) {
+  function run(action: () => Promise<Result>, done: string) {
     startTransition(async () => {
-      setError(null);
       const r = await action();
-      if (!r.ok) setError(r.error);
+      if (r.ok) toast.success(done);
+      else toast.error(r.error);
     });
   }
+
+  const slotText = (s: SlotView) => `${shortDate(s.date)} ${ROLE_SHORT[s.role]}`;
 
   function request(kind: "exchange" | "handover", mine: SlotView, target: { id: number; name: string }, theirs: SlotView | null) {
     if (!meV) return;
     startTransition(async () => {
-      setError(null);
       const r = await createSwapAction({
         kind,
         requesterId: meV.id,
@@ -83,13 +100,16 @@ export function PollView({ view }: { view: MonthView }) {
         targetSlotId: theirs?.id ?? null,
       });
       if (!r.ok) {
-        setError(r.error);
+        toast.error(r.error);
         return;
       }
       setPicking(null);
       setShareText(
         swapMessage({ kind, targetName: target.name, requesterSlot: mine, targetSlot: theirs, url: `${location.origin}/swap/${r.id}` }),
       );
+      toast.success(`Request sent to ${target.name}. Send them the link so they can answer.`, {
+        action: { label: "Share", onClick: () => revealSection(shareRef.current, true) },
+      });
     });
   }
 
@@ -97,7 +117,7 @@ export function PollView({ view }: { view: MonthView }) {
     const eligible = !!meV && meV.roles.includes(slot.role);
     if (slot.volunteerId === null) {
       return canClaim(view.status) && eligible ? (
-        <button type="button" disabled={busy} className="btn btn-dashed w-full" onClick={() => run(() => claimAction(slot.id, meV!.id))}>
+        <button type="button" disabled={busy} className="btn btn-dashed w-full" onClick={() => run(() => claimAction(slot.id, meV!.id), `You have the ${slotText(slot)}.`)}>
           <span aria-hidden="true">+</span> Claim
         </button>
       ) : (
@@ -113,7 +133,7 @@ export function PollView({ view }: { view: MonthView }) {
         </span>
         <div className="flex flex-wrap gap-x-4 text-sm">
           {mine && canClaim(view.status) && (
-            <button type="button" disabled={busy} className="link" onClick={() => run(() => releaseAction(slot.id, meV!.id))}>
+            <button type="button" disabled={busy} className="link" onClick={() => run(() => releaseAction(slot.id, meV!.id), `Released your ${slotText(slot)}.`)}>
               Release
             </button>
           )}
@@ -138,7 +158,7 @@ export function PollView({ view }: { view: MonthView }) {
       const t = picking.target;
       const offers = mySlots.filter((s) => rolesOf(t.volunteerId).includes(s.role));
       return (
-        <div className="card border-accent p-4 sm:p-5">
+        <div ref={pickerRef} className="card scroll-mt-24 border-accent p-4 sm:p-5">
           <p className="mb-3 font-semibold">
             Swap for {t.volunteerName}&apos;s {shortDate(t.date)} {ROLE_SHORT[t.role]}. Offer one of your dates:
           </p>
@@ -157,7 +177,7 @@ export function PollView({ view }: { view: MonthView }) {
     const m = picking.mine;
     const candidates = view.volunteers.filter((v) => v.active && v.id !== meV.id && v.roles.includes(m.role));
     return (
-      <div className="card border-accent p-4 sm:p-5">
+      <div ref={pickerRef} className="card scroll-mt-24 border-accent p-4 sm:p-5">
         <p className="mb-3 font-semibold">Who should take your {shortDate(m.date)} {ROLE_SHORT[m.role]}?</p>
         <div className="flex flex-wrap gap-2">
           {candidates.map((v) => (
@@ -219,8 +239,7 @@ export function PollView({ view }: { view: MonthView }) {
         </p>
       )}
 
-      {error && <p role="alert" className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm text-danger-text">{error}</p>}
-      {shareText && <SharePanel text={shareText} onClose={() => setShareText(null)} />}
+      {shareText && <SharePanel ref={shareRef} text={shareText} onClose={() => setShareText(null)} />}
       {renderPicker()}
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

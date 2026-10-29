@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { createMonthAction, logoutAction } from "@/app/actions/organiser";
 import { isOrganiser } from "@/app/session";
@@ -7,14 +8,15 @@ import { getMonthIdByYm, getMonthView, listMonths } from "@/server/month-view";
 import { listVolunteers } from "@/server/roster";
 import { LoginForm } from "./LoginForm";
 import { MonthPanel } from "./MonthPanel";
+import { OrganiserFlash } from "./OrganiserFlash";
 import { OrganiserLiveRefresh } from "./OrganiserLiveRefresh";
 import { RosterPanel } from "./RosterPanel";
 
-export default async function OrganiserPage({ searchParams }: { searchParams: Promise<{ m?: string; msg?: string }> }) {
+export default async function OrganiserPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   await connection();
   if (!(await isOrganiser())) return <LoginForm />;
 
-  const { m, msg } = await searchParams;
+  const { m } = await searchParams;
   const all = await listMonths();
   const picked = m ? parseYm(m) : null;
   const selectedId = picked ? await getMonthIdByYm(picked.year, picked.month) : (all[0]?.id ?? null);
@@ -32,7 +34,9 @@ export default async function OrganiserPage({ searchParams }: { searchParams: Pr
         </div>
         <form action={logoutAction}><button className="btn">Log out</button></form>
       </header>
-      {msg && <p role="status" className="rounded-2xl border border-accent bg-accent-soft p-4 text-sm text-accent-text">{msg}</p>}
+      <Suspense fallback={null}>
+        <OrganiserFlash />
+      </Suspense>
 
       <section className="card flex flex-col gap-4 p-4 sm:p-6">
         <h2 className="eyebrow">Months</h2>

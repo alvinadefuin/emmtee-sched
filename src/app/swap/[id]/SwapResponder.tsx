@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { respondSwapAction } from "@/app/actions/poll";
 import { NamePicker } from "@/app/components/NamePicker";
+import { useToast } from "@/app/components/Toaster";
 import { useMe } from "@/app/components/use-me";
 import { shortDate } from "@/lib/dates";
 import { ROLE_SHORT } from "@/lib/roles";
@@ -17,16 +18,18 @@ const STATUS_TONE: Record<string, string> = {
 
 export function SwapResponder({ swap, volunteers }: { swap: SwapDetail; volunteers: VolunteerView[] }) {
   const [me, setMe] = useMe();
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const [busy, start] = useTransition();
   const rs = `${shortDate(swap.requesterSlot.date)} ${ROLE_SHORT[swap.requesterSlot.role]}`;
   const ts = swap.targetSlot ? `${shortDate(swap.targetSlot.date)} ${ROLE_SHORT[swap.targetSlot.role]}` : null;
 
   const respond = (response: "accept" | "decline" | "cancel") =>
     start(async () => {
-      setError(null);
       const r = await respondSwapAction(swap.id, me!, response);
-      if (!r.ok) setError(r.error);
+      if (!r.ok) toast.error(r.error);
+      else if (response === "accept") toast.success("Swap accepted. The schedule is updated.", { action: { label: "View schedule", href: "/" } });
+      else if (response === "decline") toast.success("Request declined.");
+      else toast.success("Request cancelled.");
     });
 
   return (
@@ -64,7 +67,6 @@ export function SwapResponder({ swap, volunteers }: { swap: SwapDetail; voluntee
       {swap.status === "pending" && me !== null && me !== swap.target.id && me !== swap.requester.id && (
         <p className="text-sm text-muted">Only {swap.target.name} can answer this request.</p>
       )}
-      {error && <p role="alert" className="rounded-2xl border border-danger bg-danger-soft p-4 text-sm text-danger-text">{error}</p>}
       <Link href="/" className="link self-start">Back to the schedule</Link>
     </main>
   );
