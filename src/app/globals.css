@@ -9,6 +9,8 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b1626;
+  /* The logo has white and cyan parts, so it always sits on a navy tile. */
+  --logo-tile: #0b1626;
   --surface: #11213a;
   --raised: #182b4a;
   --line: #253a5c;
@@ -75,6 +77,7 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-logo-tile: var(--logo-tile);
   --color-on-accent: var(--on-accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
