@@ -12,6 +12,7 @@ out/
 
 # local-only data (real roster, seed data, notes about real people)
 local/
+scratch/
 
 # vercel
 .vercel/
