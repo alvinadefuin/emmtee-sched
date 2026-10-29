@@ -125,6 +125,47 @@ body::before {
   outline-offset: 2px;
 }
 
+/*
+ * Scrollbars in the theme colours: a slim rounded thumb (line-strong, 3:1+ against the page)
+ * on the page background. Firefox and Chrome/Edge 121+ use the standard properties; Safari
+ * does not support scrollbar-color, so it gets the ::-webkit-scrollbar fallback. Phones keep
+ * their native overlay scrollbars.
+ */
+@supports (scrollbar-color: auto) {
+  html {
+    scrollbar-color: var(--line-strong) var(--bg);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
 @layer components {
   /* Horizontal page padding that clears notches in landscape. */
   .page-x {
