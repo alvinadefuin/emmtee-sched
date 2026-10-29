@@ -1,26 +1,336 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Colour tokens. Dark (navy + teal) is the default; light (off-white + teal + peach) is opt-in
+ * via data-theme="light" on <html>, set before first paint by the inline script in layout.tsx.
+ * Contrast (WCAG AA) was checked for every text/background pair the UI uses; see the UI refresh spec.
+ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b1626;
+  --surface: #11213a;
+  --raised: #182b4a;
+  --line: #253a5c;
+  --line-strong: #5d7aa3;
+  --fg: #e9eff7;
+  --muted: #a3b3c9;
+  --accent: #5cc8d4;
+  --on-accent: #05262b;
+  --accent-soft: #0f3644;
+  --accent-text: #8fe3ec;
+  --peach: #f0b48a;
+  --peach-soft: #3a2619;
+  --peach-text: #f6c9a6;
+  --warn: #f7b84b;
+  --warn-soft: #3a2a0c;
+  --warn-text: #ffd58a;
+  --danger: #ff8b84;
+  --danger-soft: #3f1a1f;
+  --danger-text: #ffb7b0;
+  --focus: #8fe3ec;
+  --header: rgba(11, 22, 38, 0.82);
+  --glow-a: rgba(92, 200, 212, 0.16);
+  --glow-b: rgba(38, 54, 97, 0.55);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -18px rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f2ea;
+  --surface: #fffcf7;
+  --raised: #efe8dc;
+  --line: #e1d7c7;
+  --line-strong: #8b8172;
+  --fg: #17202e;
+  --muted: #566070;
+  --accent: #0d6d78;
+  --on-accent: #ffffff;
+  --accent-soft: #dcf0f1;
+  --accent-text: #0a535c;
+  --peach: #a0531c;
+  --peach-soft: #fbe6d5;
+  --peach-text: #8a4515;
+  --warn: #8f5a00;
+  --warn-soft: #fbecc8;
+  --warn-text: #6e4500;
+  --danger: #b3261e;
+  --danger-soft: #fbe3e0;
+  --danger-text: #8c1d18;
+  --focus: #0d6d78;
+  --header: rgba(246, 242, 234, 0.85);
+  --glow-a: rgba(240, 180, 138, 0.28);
+  --glow-b: rgba(92, 200, 212, 0.14);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 28px -20px rgba(60, 40, 20, 0.35);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Only theme tokens exist as colour utilities; hard-coded palettes (white, neutral-*, …) are disabled. */
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-peach: var(--peach);
+  --color-peach-soft: var(--peach-soft);
+  --color-peach-text: var(--peach-text);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-text: var(--warn-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-text: var(--danger-text);
+  --color-focus: var(--focus);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: ui-serif, "New York", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--font-sans);
+}
+
+/* Atmosphere: a soft glow at the top of the page, fixed so it does not scroll (works on iOS, unlike background-attachment). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 55% at 15% -10%, var(--glow-a), transparent 70%),
+    radial-gradient(70% 50% at 100% 0%, var(--glow-b), transparent 70%);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* Horizontal page padding that clears notches in landscape. */
+  .page-x {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+  /* Bottom padding that clears the iPhone home bar. */
+  .page-bottom {
+    padding-bottom: max(2.5rem, calc(env(safe-area-inset-bottom) + 1.5rem));
+  }
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding-top: env(safe-area-inset-top);
+    background: var(--header);
+    border-bottom: 1px solid var(--line);
+    -webkit-backdrop-filter: saturate(140%) blur(12px);
+    backdrop-filter: saturate(140%) blur(12px);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow);
+  }
+
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--line-strong);
+    background: var(--raised);
+    color: var(--fg);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: border-color 150ms, background-color 150ms, transform 100ms;
+  }
+  .btn:hover {
+    border-color: var(--accent);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn-primary:hover {
+    border-color: var(--fg);
+  }
+  .btn-dashed {
+    border-style: dashed;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .btn-danger {
+    color: var(--danger);
+  }
+  .btn-danger:hover {
+    border-color: var(--danger);
+  }
+  /* Disabled keeps AA contrast (muted on raised) rather than fading with opacity. */
+  .btn:disabled {
+    background: var(--raised);
+    border-color: var(--line-strong);
+    border-style: solid;
+    color: var(--muted);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Text-style action with a full 44px hit area. */
+  .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .link:hover {
+    text-decoration-thickness: 2px;
+  }
+  .link:disabled {
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+
+  /* 16px text so iOS Safari does not zoom on focus. */
+  .field {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.625rem;
+    border: 1px solid var(--line-strong);
+    background: var(--raised);
+    color: var(--fg);
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+  .field::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+  .field:hover {
+    border-color: var(--accent);
+  }
+  .field-auto {
+    background: var(--peach-soft);
+    border-color: var(--peach);
+  }
+
+  .check {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+    accent-color: var(--accent);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    max-width: 100%;
+    padding: 0.375rem 0.875rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--raised);
+    color: var(--fg);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .chip-mine {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Theme toggle shows the theme it switches to. */
+  .theme-icon-moon {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-icon-sun {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-icon-moon {
+    display: block;
+  }
+
+  .rise {
+    animation: rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 55ms);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+  .btn {
+    transition: none;
+  }
 }
