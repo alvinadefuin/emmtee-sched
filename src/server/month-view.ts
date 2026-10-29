@@ -22,6 +22,8 @@ export type SwapView = {
   targetId: number;
   requesterSlotId: number;
   targetSlotId: number | null;
+  /** Null for requests made before short links; see swapPath. */
+  shortCode: string | null;
 };
 export type MonthView = {
   id: number;
@@ -139,5 +141,6 @@ function swapView(s: typeof swapRequests.$inferSelect): SwapView {
     targetId: s.targetId,
     requesterSlotId: s.requesterSlotId,
     targetSlotId: s.targetSlotId,
+    shortCode: s.shortCode,
   };
 }

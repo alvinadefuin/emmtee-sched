@@ -137,4 +137,50 @@ describe.skipIf(!safe)("swaps against the database", () => {
     const holders = [await holder(ids.s1), await holder(ids.s2), await holder(ids.s3)];
     expect(new Set(holders).size).toBe(3); // nobody lost or duplicated
   });
+
+  it("gives each request its own short code that resolves back to it", async () => {
+    const { isShortCode } = await import("@/lib/short-code");
+    const created = await Promise.all([
+      mod.swaps.createSwap({ kind: "handover", requesterId: ids.a, requesterSlotId: ids.s1, targetId: ids.b, targetSlotId: null }),
+      mod.swaps.createSwap({ kind: "handover", requesterId: ids.b, requesterSlotId: ids.s2, targetId: ids.c, targetSlotId: null }),
+      mod.swaps.createSwap({ kind: "handover", requesterId: ids.c, requesterSlotId: ids.s3, targetId: ids.a, targetSlotId: null }),
+    ]);
+    const codes = created.map((r) => {
+      if (!r.ok) throw new Error(r.error);
+      expect(isShortCode(r.shortCode)).toBe(true);
+      return r.shortCode;
+    });
+    expect(new Set(codes).size).toBe(codes.length);
+    for (const r of created) {
+      if (!r.ok) continue;
+      expect(await mod.swaps.findSwapIdByCode(r.shortCode)).toBe(r.id);
+      expect(await mod.swaps.findSwapIdByCode(r.shortCode.toLowerCase())).toBe(r.id);
+    }
+    expect(await mod.swaps.findSwapIdByCode("ZZZZZZZZ")).toBeNull();
+    expect(await mod.swaps.findSwapIdByCode("not-a-code")).toBeNull();
+  });
+
+  it("retries with a new code when the generated one is taken", async () => {
+    const first = await mod.swaps.createSwap(
+      { kind: "handover", requesterId: ids.a, requesterSlotId: ids.s1, targetId: ids.b, targetSlotId: null },
+      new Date(),
+      () => "K7P2QX9M",
+    );
+    if (!first.ok) throw new Error(first.error);
+    const codes = ["K7P2QX9M", "K7P2QX9M", "M9XQ2P7K"];
+    const second = await mod.swaps.createSwap(
+      { kind: "handover", requesterId: ids.b, requesterSlotId: ids.s2, targetId: ids.c, targetSlotId: null },
+      new Date(),
+      () => codes.shift()!,
+    );
+    if (!second.ok) throw new Error(second.error);
+    expect(second.shortCode).toBe("M9XQ2P7K");
+  });
+
+  it("still reports a pending clash instead of retrying it", async () => {
+    const input = { kind: "handover" as const, requesterId: ids.a, requesterSlotId: ids.s1, targetId: ids.b, targetSlotId: null };
+    expect((await mod.swaps.createSwap(input)).ok).toBe(true);
+    const again = await mod.swaps.createSwap(input);
+    expect(again).toEqual({ ok: false, error: "There is already a pending swap for one of these slots." });
+  });
 });

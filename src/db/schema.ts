@@ -110,12 +110,15 @@ export const swapRequests = pgTable(
     targetSlotId: integer("target_slot_id").references(() => slots.id, { onDelete: "cascade" }),
     status: swapStatusEnum("status").notNull().default("pending"),
     reason: text("reason"),
+    // Code for the short share link /s/<code>; null on requests made before short links.
+    shortCode: text("short_code"),
     createdAt: createdAt(),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   },
   (t) => [
     uniqueIndex("swap_pending_requester_slot").on(t.requesterSlotId).where(sql`${t.status} = 'pending'`),
     uniqueIndex("swap_pending_target_slot").on(t.targetSlotId).where(sql`${t.status} = 'pending'`),
+    uniqueIndex("swap_requests_short_code").on(t.shortCode),
   ],
 );
 

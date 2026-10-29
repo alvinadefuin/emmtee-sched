@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { shortDate } from "@/lib/dates";
 import { ROLE_SHORT } from "@/lib/roles";
+import { swapPath } from "@/lib/swap-link";
 import { diffSwapNotices, parseSeenSwaps, type SeenSwaps, type SwapLite } from "@/lib/swap-notices";
 import type { MonthView, SlotView } from "@/server/month-view";
 import { useToast } from "./Toaster";
@@ -61,7 +62,7 @@ export function useSwapNotices(view: MonthView, me: number | null) {
     for (const n of notices) {
       const s = all.find((x) => x.id === n.id);
       if (!s) continue;
-      const viewAction = { label: "View", href: `/swap/${s.id}` };
+      const viewAction = { label: "View", href: swapPath(s) };
       if (n.type === "incoming") {
         const text =
           s.kind === "exchange"

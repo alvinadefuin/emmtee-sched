@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { swapMessage } from "@/lib/swap-message";
 
-const url = "https://example.vercel.app/swap/abc";
+const url = "https://example.vercel.app/s/K7P2QX9M";
 
 describe("swapMessage", () => {
   it("describes an exchange", () => {

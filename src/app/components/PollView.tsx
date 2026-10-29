@@ -7,6 +7,7 @@ import { monthLabel, shortDate, ym } from "@/lib/dates";
 import { canClaim, canSwap } from "@/lib/month-status";
 import { isRequiredRole, ROLE_LABEL, ROLE_SHORT, SLOT_ROLES, type SlotRole } from "@/lib/roles";
 import type { Result } from "@/lib/result";
+import { swapPath, swapUrl } from "@/lib/swap-link";
 import { swapMessage } from "@/lib/swap-message";
 import type { MonthView, SlotView } from "@/server/month-view";
 import { Countdown } from "./Countdown";
@@ -108,7 +109,7 @@ export function PollView({ view }: { view: MonthView }) {
       }
       setPicking(null);
       setShareText(
-        swapMessage({ kind, targetName: target.name, requesterSlot: mine, targetSlot: theirs, url: `${location.origin}/swap/${r.id}` }),
+        swapMessage({ kind, targetName: target.name, requesterSlot: mine, targetSlot: theirs, url: swapUrl(location.origin, r) }),
       );
       toast.success(`Request sent to ${target.name}. Send them the link so they can answer.`, {
         action: { label: "Share", onClick: () => revealSection(shareRef.current, true) },
@@ -235,7 +236,7 @@ export function PollView({ view }: { view: MonthView }) {
             You have {incoming.length} pending swap request{incoming.length > 1 ? "s" : ""}:
           </span>{" "}
           {incoming.map((s) => (
-            <Link key={s.id} href={`/swap/${s.id}`} className="link mr-4 text-warn-text">View</Link>
+            <Link key={s.id} href={swapPath(s)} className="link mr-4 text-warn-text">View</Link>
           ))}
         </div>
       )}
@@ -243,7 +244,7 @@ export function PollView({ view }: { view: MonthView }) {
         <p className="rounded-2xl border border-line bg-surface px-4 py-2 text-sm text-muted">
           Waiting on {outgoing.length} request{outgoing.length > 1 ? "s" : ""} you sent:{" "}
           {outgoing.map((s) => (
-            <Link key={s.id} href={`/swap/${s.id}`} className="link mr-4">View</Link>
+            <Link key={s.id} href={swapPath(s)} className="link mr-4">View</Link>
           ))}
         </p>
       )}

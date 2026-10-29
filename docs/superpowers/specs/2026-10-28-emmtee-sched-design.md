@@ -134,6 +134,7 @@ Runs in one database transaction: re-validate (§6.2) with row locks on both slo
 
 1. **Share link:** after creating a request, the requester gets a prefilled message ("Hi <name>, can we swap? My Nov 9 Laptop for your Nov 23 Laptop. Tap to accept or decline: <link>") with **Share** (Web Share API) and **Copy** buttons, to send via Messenger.
 2. **In-app alert:** the banner on `/` (§4.1) when the target opens the poll with their name selected.
+3. **Short links:** each request gets a random 8-character code from `23456789ABCDEFGHJKMNPQRSTVWXYZ` (no 0/O/1/I/L/U; about 39 bits, generated with `crypto.randomInt`, retried on a clash with the unique index). Shared and in-app links use `/s/<CODE>`, which normalises the case, looks the code up and answers with a temporary (307) redirect to `/swap/[id]` (unknown codes get 404). Requests made before short links have no code and keep `/swap/[id]` links, which keep working permanently.
 
 No email, SMS or push notifications; no contact details are stored.
 
@@ -206,7 +207,7 @@ swap_requests     id (uuid), requester_id → volunteers, target_id → voluntee
                   requester_slot_id → slots (not null),
                   target_slot_id → slots (null for hand-over),
                   kind (enum: exchange|handover), status (enum: pending|accepted|declined|cancelled|invalid),
-                  reason (text, nullable), created_at, resolved_at
+                  reason (text, nullable), short_code (text, nullable, UNIQUE), created_at, resolved_at
 organiser_attempts ip_hash, window_start, count                                          (PIN rate limiting)
 ```
 

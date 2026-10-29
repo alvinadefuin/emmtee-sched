@@ -2,14 +2,18 @@ import { and, asc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { serviceDates, slots, swapRequests, volunteers } from "@/db/schema";
 import { isUuid } from "@/lib/ids";
+import { generateShortCode, normaliseShortCode } from "@/lib/short-code";
 import { effectiveStatus } from "@/lib/month-status";
 import { fail, notNull, type Result } from "@/lib/result";
 import type { SlotRole, SwapKind, SwapStatus } from "@/lib/roles";
 import { swapStatusError, validateSwap } from "@/lib/swap-rules";
-import { isUniqueViolation } from "./errors";
+import { isUniqueViolation, uniqueViolationConstraint } from "./errors";
 import { eligibilityMap, monthSlots, slotContext, volunteerProblem } from "./queries";
 
 const PENDING_CLASH = "There is already a pending swap for one of these slots.";
+const SHORT_CODE_INDEX = "swap_requests_short_code";
+// 30^8 codes: a clash is already unlikely, five in a row means something else is wrong.
+const SHORT_CODE_ATTEMPTS = 5;
 
 export type CreateSwapInput = {
   kind: SwapKind;
@@ -19,7 +23,11 @@ export type CreateSwapInput = {
   targetSlotId: number | null;
 };
 
-export async function createSwap(input: CreateSwapInput, now = new Date()): Promise<Result<{ id: string }>> {
+export async function createSwap(
+  input: CreateSwapInput,
+  now = new Date(),
+  newCode: () => string = generateShortCode,
+): Promise<Result<{ id: string; shortCode: string }>> {
   const ctx = await slotContext(db, input.requesterSlotId);
   if (!ctx) return fail("Slot not found.");
   if (input.targetSlotId !== null) {
@@ -51,13 +59,46 @@ export async function createSwap(input: CreateSwapInput, now = new Date()): Prom
     .limit(1);
   if (clash.length) return fail(PENDING_CLASH);
 
-  try {
-    const [row] = await db.insert(swapRequests).values(input).returning({ id: swapRequests.id });
-    return { ok: true, id: row.id };
-  } catch (e) {
-    if (isUniqueViolation(e)) return fail(PENDING_CLASH);
-    throw e;
+  for (let attempt = 1; ; attempt++) {
+    const shortCode = newCode();
+    try {
+      const [row] = await db
+        .insert(swapRequests)
+        .values({ ...input, shortCode })
+        .returning({ id: swapRequests.id });
+      return { ok: true, id: row.id, shortCode };
+    } catch (e) {
+      if (!isUniqueViolation(e)) throw e;
+      // The pending-slot indexes mean a request was made for one of these slots meanwhile;
+      // the short-code index means the random code is taken, so try another.
+      if (!(await isShortCodeClash(e, shortCode))) return fail(PENDING_CLASH);
+      if (attempt >= SHORT_CODE_ATTEMPTS) throw e;
+    }
   }
+}
+
+async function isShortCodeClash(error: unknown, shortCode: string): Promise<boolean> {
+  const constraint = uniqueViolationConstraint(error);
+  if (constraint !== null) return constraint === SHORT_CODE_INDEX;
+  // The driver did not name the index: check whether the code is the part already in use.
+  const taken = await db
+    .select({ id: swapRequests.id })
+    .from(swapRequests)
+    .where(eq(swapRequests.shortCode, shortCode))
+    .limit(1);
+  return taken.length > 0;
+}
+
+/** The request a short link (/s/<code>) points to; null for a malformed or unknown code. */
+export async function findSwapIdByCode(code: string): Promise<string | null> {
+  const shortCode = normaliseShortCode(code);
+  if (!shortCode) return null;
+  const [row] = await db
+    .select({ id: swapRequests.id })
+    .from(swapRequests)
+    .where(eq(swapRequests.shortCode, shortCode))
+    .limit(1);
+  return row?.id ?? null;
 }
 
 export async function acceptSwap(id: string, actorId: number, now = new Date()): Promise<Result> {

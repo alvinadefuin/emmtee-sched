@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { isId, isUuid } from "@/lib/ids";
 import { fail, type Result } from "@/lib/result";
+import { swapPagePath } from "@/lib/swap-link";
 import { claimSlot, releaseSlot } from "@/server/poll";
 import { acceptSwap, cancelSwap, createSwap, declineSwap, type CreateSwapInput } from "@/server/swaps";
 
@@ -20,7 +21,7 @@ export async function releaseAction(slotId: number, volunteerId: number): Promis
   return r;
 }
 
-export async function createSwapAction(input: CreateSwapInput): Promise<Result<{ id: string }>> {
+export async function createSwapAction(input: CreateSwapInput): Promise<Result<{ id: string; shortCode: string }>> {
   const kindOk = input.kind === "exchange" || input.kind === "handover";
   const targetSlotOk = input.targetSlotId === null || isId(input.targetSlotId);
   if (!kindOk || !isId(input.requesterId) || !isId(input.requesterSlotId) || !isId(input.targetId) || !targetSlotOk) {
@@ -44,6 +45,6 @@ export async function respondSwapAction(
         ? await declineSwap(id, actorId)
         : await cancelSwap(id, actorId);
   revalidatePath("/");
-  revalidatePath(`/swap/${id}`);
+  revalidatePath(swapPagePath(id));
   return r;
 }
