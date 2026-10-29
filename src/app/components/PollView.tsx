@@ -12,6 +12,7 @@ import type { MonthView, SlotView } from "@/server/month-view";
 import { Countdown } from "./Countdown";
 import { NamePicker } from "./NamePicker";
 import { SharePanel } from "./SharePanel";
+import { imageVersion } from "./image-version";
 import { ShareImageButton } from "./ShareImageButton";
 import { useToast } from "./Toaster";
 import { useMe } from "./use-me";
@@ -194,11 +195,7 @@ export function PollView({ view }: { view: MonthView }) {
   }
 
   // Changes whenever an assignment, the poster or the theme does, so the image is never stale.
-  const imageVersion = [
-    view.theme,
-    view.poster?.id ?? "",
-    ...view.dates.map((d) => `${d.date}:${SLOT_ROLES.map((r) => d.slots[r].volunteerId ?? "").join(",")}`),
-  ].join("|");
+
   const posterIsMe = view.poster !== null && view.poster.id === me;
 
   return (
@@ -225,7 +222,7 @@ export function PollView({ view }: { view: MonthView }) {
       </section>
 
       {view.status === "published" && (
-        <ShareImageButton ym={ym(view.year, view.month)} title={monthLabel(view.year, view.month)} version={imageVersion} />
+        <ShareImageButton ym={ym(view.year, view.month)} title={monthLabel(view.year, view.month)} version={imageVersion(view)} />
       )}
 
       <div className="card p-4 sm:p-5">

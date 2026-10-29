@@ -4,6 +4,8 @@ import { emptyRequiredSlots } from "@/lib/required-slots";
 import { ROLE_LABEL, SLOT_ROLES, THEMES } from "@/lib/roles";
 import { volunteerSummary } from "@/lib/summary";
 import type { MonthView } from "@/server/month-view";
+import { imageVersion } from "@/app/components/image-version";
+import { ShareImageButton } from "@/app/components/ShareImageButton";
 
 const btn = "btn text-sm";
 const label = "flex min-w-0 flex-col gap-1.5 text-sm font-semibold";
@@ -55,7 +57,7 @@ export function MonthPanel({ view }: { view: MonthView }) {
         )}
         {(view.status === "locked" || view.status === "draft") && op("reopen", "Reopen poll")}
         {view.status === "published" && op("unpublish", "Unpublish")}
-        <a className={btn} href={`/api/months/${key}/image`} target="_blank" rel="noreferrer">Preview image</a>
+        <ShareImageButton variant="button" label="Preview image" className={btn} ym={key} title={monthLabel(view.year, view.month)} version={imageVersion(view)} />
       </div>
 
       <form action={updateMonthAction} className="grid gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useToast } from "./Toaster";
 
 type Phase = "idle" | "loading" | "ready" | "error";
@@ -9,9 +9,25 @@ type Phase = "idle" | "loading" | "ready" | "error";
  * Entry card for the schedule image. Opens a modal preview (native <dialog>) that fetches
  * the PNG once, shows it, and offers Share (Web Share with the file), Download and Close.
  * `version` changes whenever the schedule does, so the image is never a stale copy.
+ * `variant="button"` renders just the trigger (the organiser's "Preview image"), styled by `className`.
  */
-export function ShareImageButton({ ym, title, version }: { ym: string; title: string; version: string }) {
+export function ShareImageButton({
+  ym,
+  title,
+  version,
+  variant = "card",
+  label = "Share schedule image",
+  className = "btn text-sm",
+}: {
+  ym: string;
+  title: string;
+  version: string;
+  variant?: "card" | "button";
+  label?: string;
+  className?: string;
+}) {
   const toast = useToast();
+  const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -103,20 +119,26 @@ export function ShareImageButton({ ym, title, version }: { ym: string; title: st
 
   return (
     <>
-      <div className="card flex flex-col gap-3 border-accent p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="min-w-0">
-          <p className="font-display text-xl font-semibold tracking-tight">Share the schedule</p>
-          <p className="text-sm text-muted">Preview the final schedule as an image to send to the group.</p>
-        </div>
-        <button ref={triggerRef} type="button" onClick={openModal} className="btn btn-primary w-full sm:w-auto" aria-haspopup="dialog">
-          Share schedule image
+      {variant === "button" ? (
+        <button ref={triggerRef} type="button" onClick={openModal} className={className} aria-haspopup="dialog">
+          {label}
         </button>
-      </div>
+      ) : (
+        <div className="card flex flex-col gap-3 border-accent p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <div className="min-w-0">
+            <p className="font-display text-xl font-semibold tracking-tight">Share the schedule</p>
+            <p className="text-sm text-muted">Preview the final schedule as an image to send to the group.</p>
+          </div>
+          <button ref={triggerRef} type="button" onClick={openModal} className="btn btn-primary w-full sm:w-auto" aria-haspopup="dialog">
+            {label}
+          </button>
+        </div>
+      )}
 
       <dialog
         ref={dialogRef}
         className="share-dialog"
-        aria-labelledby="share-dialog-title"
+        aria-labelledby={titleId}
         onClose={onClosed}
         onClick={(e) => {
           if (e.target === e.currentTarget) requestClose();
@@ -124,7 +146,7 @@ export function ShareImageButton({ ym, title, version }: { ym: string; title: st
       >
         <div className="share-dialog-body">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="share-dialog-title" className="font-display text-xl font-semibold tracking-tight">{title}</h2>
+            <h2 id={titleId} className="font-display text-xl font-semibold tracking-tight">{title}</h2>
             <button type="button" className="btn" aria-label="Close preview" onClick={requestClose}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
